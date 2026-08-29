@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/marketing/tasks/execute",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}
