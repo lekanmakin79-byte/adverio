@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 const VALID_CHANNELS = [
   "facebook",
@@ -65,18 +65,24 @@ if (!cronSecret) {
 }
 
     if (
-      authHeader !==
-      `Bearer ${cronSecret}`
-    ) {
-      return NextResponse.json(
-        {
-          error: "Unauthorized.",
-        },
-        { status: 401 },
-      );
-    }
+  authHeader !==
+  `Bearer ${cronSecret}`
+) {
+  return NextResponse.json(
+    {
+      error: "Unauthorized.",
+      diagnostic: {
+        vercel_secret_exists: Boolean(cronSecret),
+        vercel_secret_length: cronSecret?.length ?? 0,
+        received_header_exists: Boolean(authHeader),
+        received_header_length: authHeader?.length ?? 0,
+      },
+    },
+    { status: 401 },
+  );
+}
 
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
     /*
      * Find tasks that are due.
