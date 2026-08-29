@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import LeadAssistant from "./LeadAssistant";
+import ConvertToCustomer from "./ConvertToCustomer";
 
 type PageProps = {
   params: Promise<{
@@ -215,6 +216,14 @@ export default async function LeadDetailsPage({
               }
             />
           </aside>
+               </div>
+
+        {/* Convert converted lead into customer */}
+        <div className="mt-6">
+          <ConvertToCustomer
+            leadId={lead.id}
+            leadStatus={lead.status}
+          />
         </div>
       </div>
     </main>

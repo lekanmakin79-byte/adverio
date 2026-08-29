@@ -103,41 +103,48 @@ export async function POST(
     }
 
     // --------------------------------------------------
-    // 4. Only converted leads can become customers
+    // 4. The lead must already be converted
     // --------------------------------------------------
 
-    if (lead.status !== "converted") {
-      return NextResponse.json(
-        {
-          error:
-            "The lead must be marked as converted before creating a customer.",
-        },
-        { status: 400 },
-      );
-    }
+   const normalizedStatus =
+  typeof lead.status === "string"
+    ? lead.status.trim().toLowerCase()
+    : "";
+
+if (normalizedStatus !== "converted") {
+  return NextResponse.json(
+    {
+      error:
+        "This lead must have a status of Converted before it can become a customer.",
+    },
+    { status: 400 },
+  );
+}
 
     // --------------------------------------------------
     // 5. Check whether this lead already has a customer
     // --------------------------------------------------
 
-    const { data: existingCustomer, error: existingError } =
-      await supabase
-        .from("customers")
-        .select(
-          `
-            id,
-            owner_id,
-            lead_id,
-            name,
-            email,
-            phone,
-            created_at,
-            updated_at
-          `,
-        )
-        .eq("lead_id", lead.id)
-        .eq("owner_id", user.id)
-        .maybeSingle();
+    const {
+      data: existingCustomer,
+      error: existingError,
+    } = await supabase
+      .from("customers")
+      .select(
+        `
+          id,
+          owner_id,
+          lead_id,
+          name,
+          email,
+          phone,
+          created_at,
+          updated_at
+        `,
+      )
+      .eq("lead_id", lead.id)
+      .eq("owner_id", user.id)
+      .maybeSingle();
 
     if (existingError) {
       console.error(
@@ -155,14 +162,15 @@ export async function POST(
     }
 
     // --------------------------------------------------
-    // 6. Return existing customer instead of creating
-    //    a duplicate
+    // 6. Prevent duplicate customers
     // --------------------------------------------------
 
     if (existingCustomer) {
       return NextResponse.json({
         success: true,
         alreadyExists: true,
+        message:
+          "This lead has already been converted into a customer.",
         customer: existingCustomer,
       });
     }
@@ -171,29 +179,31 @@ export async function POST(
     // 7. Create customer
     // --------------------------------------------------
 
-    const { data: customer, error: customerError } =
-      await supabase
-        .from("customers")
-        .insert({
-          owner_id: user.id,
-          lead_id: lead.id,
-          name: lead.name,
-          email: lead.email,
-          phone: lead.phone,
-        })
-        .select(
-          `
-            id,
-            owner_id,
-            lead_id,
-            name,
-            email,
-            phone,
-            created_at,
-            updated_at
-          `,
-        )
-        .single();
+    const {
+      data: customer,
+      error: customerError,
+    } = await supabase
+      .from("customers")
+      .insert({
+        owner_id: user.id,
+        lead_id: lead.id,
+        name: lead.name,
+        email: lead.email,
+        phone: lead.phone,
+      })
+      .select(
+        `
+          id,
+          owner_id,
+          lead_id,
+          name,
+          email,
+          phone,
+          created_at,
+          updated_at
+        `,
+      )
+      .single();
 
     if (customerError) {
       console.error(
@@ -217,6 +227,8 @@ export async function POST(
     return NextResponse.json({
       success: true,
       alreadyExists: false,
+      message:
+        "Lead successfully converted into a customer.",
       customer,
     });
   } catch (error) {
@@ -228,7 +240,7 @@ export async function POST(
     return NextResponse.json(
       {
         error:
-          "Something went wrong while converting the lead.",
+          "Something went wrong while converting the lead into a customer.",
       },
       { status: 500 },
     );

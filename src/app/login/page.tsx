@@ -125,6 +125,15 @@ Adverio. </a>
             className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           />
         </div>
+		
+		<div className="flex justify-end">
+  <a
+    href="/forgot-password"
+    className="text-sm font-semibold text-blue-600 transition hover:text-blue-700"
+  >
+    Forgot password?
+  </a>
+</div>
 
         {error && (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700">
@@ -141,6 +150,8 @@ Adverio. </a>
             ? "Signing in..."
             : "Sign in"}
         </button>
+		
+		
       </form>
 
       <div className="mt-6 text-center text-sm text-slate-600">

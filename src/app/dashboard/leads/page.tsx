@@ -9,7 +9,7 @@ type Lead = {
   message: string | null;
   source: string;
   status: "new" | "contacted" | "qualified" | "converted" | "lost";
-  follow_up_status: "pending" | "scheduled" | "sent" | "completed";
+  follow_up_status: "pending" | "scheduled" | "sent" | "completed" | "cancelled";
   created_at: string;
 };
 
@@ -271,6 +271,7 @@ function formatFollowUpStatus(
     scheduled: "Scheduled",
     sent: "Sent",
     completed: "Completed",
+    cancelled: "Cancelled",
   };
 
   return labels[status];

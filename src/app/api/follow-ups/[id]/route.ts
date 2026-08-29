@@ -71,7 +71,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 3. Parse request
+    // 3. Parse request body
     // --------------------------------------------------
 
     let body: UpdateBody;
@@ -88,21 +88,22 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 4. Validate status
+    // 4. Validate requested status
     // --------------------------------------------------
 
     if (!isValidStatus(body.status)) {
       return NextResponse.json(
         {
-          error:
-            "Invalid follow-up status.",
+          error: "Invalid follow-up status.",
         },
         { status: 400 },
       );
     }
 
+    const newStatus = body.status;
+
     // --------------------------------------------------
-    // 5. Verify follow-up belongs to user
+    // 5. Find the follow-up belonging to this user
     // --------------------------------------------------
 
     const {
@@ -147,10 +148,20 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 6. Build update
+    // 6. Prevent unnecessary status updates
     // --------------------------------------------------
 
-    const newStatus = body.status;
+    if (existingFollowUp.status === newStatus) {
+      return NextResponse.json({
+        success: true,
+        alreadyUpdated: true,
+        message: `Follow-up is already ${newStatus}.`,
+      });
+    }
+
+    // --------------------------------------------------
+    // 7. Build update
+    // --------------------------------------------------
 
     const updateData: {
       status: FollowUpStatus;
@@ -167,7 +178,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 7. Update follow-up
+    // 8. Update follow-up
     // --------------------------------------------------
 
     const {
@@ -208,21 +219,11 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 8. Keep lead follow-up status in sync
+    // 9. Keep lead follow-up status synchronised
     // --------------------------------------------------
 
-    let leadFollowUpStatus:
-      | "pending"
-      | "completed"
-      | "cancelled";
-
-    if (newStatus === "completed") {
-      leadFollowUpStatus = "completed";
-    } else if (newStatus === "cancelled") {
-      leadFollowUpStatus = "cancelled";
-    } else {
-      leadFollowUpStatus = "pending";
-    }
+    const leadFollowUpStatus: FollowUpStatus =
+      newStatus;
 
     const { error: leadUpdateError } =
       await supabase
@@ -243,12 +244,16 @@ export async function PATCH(
       return NextResponse.json(
         {
           error:
-            "Follow-up updated, but the lead status could not be synchronised.",
+            "Follow-up was updated, but the lead follow-up status could not be synchronised.",
           followUp: updatedFollowUp,
         },
         { status: 500 },
       );
     }
+
+    // --------------------------------------------------
+    // 10. Return successful response
+    // --------------------------------------------------
 
     return NextResponse.json({
       success: true,

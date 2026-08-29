@@ -448,108 +448,160 @@ export default async function DashboardPage() {
               </div>
             </section>
 
-            {/* Automation */}
-            <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-              <div className="max-w-2xl">
-                <p className="text-sm font-bold uppercase tracking-wider text-blue-600">
-                  Automation
-                </p>
+            
+{/* Automation journey */}
+<section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+  <div>
+    <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+      Automation
+    </p>
 
-                <h2 className="mt-2 text-xl font-bold">
-                  Your marketing automation journey
-                </h2>
+    <h2 className="mt-2 text-xl font-bold text-slate-950">
+      Your marketing automation journey
+    </h2>
 
-                <p className="mt-2 text-sm leading-6 text-slate-600">
-                  Adverio will gradually automate the repetitive parts of your
-                  customer acquisition process.
-                </p>
-              </div>
+    <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+      Adverio helps automate the repetitive parts of
+      your customer acquisition process, from attracting
+      prospects to converting them into customers.
+    </p>
+  </div>
 
-              <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <AutomationStep
-                  number="01"
-                  title="Attract"
-                  description="AI creates campaigns and marketing content."
-                  status="Ready"
-                />
+  <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+    {/* 01 Attract */}
+    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-bold uppercase tracking-wider text-emerald-600">
+          01
+        </span>
 
-                <AutomationStep
-                  number="02"
-                  title="Capture"
-                  description="Collect enquiries and potential customers."
-                  status="Coming next"
-                />
+        <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+          Ready
+        </span>
+      </div>
 
-                <AutomationStep
-                  number="03"
-                  title="Follow up"
-                  description="Automatically respond and follow up with leads."
-                  status="Coming next"
-                />
+      <h3 className="mt-4 font-bold text-slate-950">
+        Attract
+      </h3>
 
-                <AutomationStep
-                  number="04"
-                  title="Convert"
-                  description="Turn qualified leads into paying customers."
-                  status="Coming next"
-                />
-              </div>
-            </section>
+      <p className="mt-2 text-sm leading-6 text-slate-600">
+        AI creates campaigns and marketing content to
+        help attract potential customers.
+      </p>
+    </div>
 
-            {/* Getting started */}
-            <section className="mt-8 grid gap-6 lg:grid-cols-2">
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <p className="text-sm font-bold uppercase tracking-wider text-slate-400">
-                  Getting started
-                </p>
+    {/* 02 Capture */}
+    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-bold uppercase tracking-wider text-emerald-600">
+          02
+        </span>
 
-                <h2 className="mt-2 text-xl font-bold">
-                  Complete your first marketing campaign.
-                </h2>
+        <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+          Ready
+        </span>
+      </div>
 
-                <p className="mt-2 text-sm leading-6 text-slate-600">
-                  Start with one service or offer. Adverio will use your
-                  business profile to help create the campaign.
-                </p>
+      <h3 className="mt-4 font-bold text-slate-950">
+        Capture
+      </h3>
 
-                <Link
-                  href="/dashboard/campaigns/new"
-                  className="mt-6 inline-flex rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
-                >
-                  Create your first campaign
-                </Link>
-              </div>
+      <p className="mt-2 text-sm leading-6 text-slate-600">
+        Capture enquiries from your campaigns and public
+        enquiry forms.
+      </p>
+    </div>
 
-              <div className="rounded-2xl border border-blue-100 bg-blue-50 p-6">
-                <p className="text-sm font-bold uppercase tracking-wider text-blue-600">
-                  Your AI advantage
-                </p>
+    {/* 03 Follow up */}
+    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-bold uppercase tracking-wider text-emerald-600">
+          03
+        </span>
 
-                <h2 className="mt-2 text-xl font-bold text-slate-950">
-                  Less marketing work. More consistency.
-                </h2>
+        <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+          Ready
+        </span>
+      </div>
 
-                <p className="mt-2 text-sm leading-6 text-slate-700">
-                  Adverio is being built to help small businesses maintain
-                  consistent marketing without needing a full-time marketing
-                  team.
-                </p>
+      <h3 className="mt-4 font-bold text-slate-950">
+        Follow up
+      </h3>
 
-                <div className="mt-5 flex flex-wrap gap-2">
-                  <span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">
-                    AI campaigns
-                  </span>
+      <p className="mt-2 text-sm leading-6 text-slate-600">
+        Generate AI responses and manage follow-up tasks
+        for potential customers.
+      </p>
+    </div>
 
-                  <span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">
-                    Lead capture
-                  </span>
+    {/* 04 Convert */}
+    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-bold uppercase tracking-wider text-emerald-600">
+          04
+        </span>
 
-                  <span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">
-                    Follow-ups
-                  </span>
-                </div>
-              </div>
-            </section>
+        <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+          Ready
+        </span>
+      </div>
+
+      <h3 className="mt-4 font-bold text-slate-950">
+        Convert
+      </h3>
+
+      <p className="mt-2 text-sm leading-6 text-slate-600">
+        Convert qualified leads into customer records and
+        continue managing the customer relationship.
+      </p>
+    </div>
+  </div>
+</section>
+
+
+            
+{/* Getting started */}
+<section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+  <div>
+    <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+      Getting started
+    </p>
+
+    <h2 className="mt-2 text-xl font-bold text-slate-950">
+      Keep your marketing system moving.
+    </h2>
+
+    <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+      Your Adverio workspace is already set up. Create
+      campaigns, capture enquiries, follow up with
+      prospects and turn successful leads into customers.
+    </p>
+  </div>
+
+  <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+    <Link
+      href="/dashboard/campaigns/new"
+      className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+    >
+      Create campaign
+    </Link>
+
+    <Link
+      href="/dashboard/leads"
+      className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-blue-500 hover:text-blue-600"
+    >
+      View leads
+    </Link>
+
+    <Link
+      href="/dashboard/follow-ups"
+      className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-blue-500 hover:text-blue-600"
+    >
+      View follow-ups
+    </Link>
+  </div>
+</section>
+
           </div>
         </div>
       </div>

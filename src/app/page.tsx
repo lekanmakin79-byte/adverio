@@ -1,3 +1,9 @@
+"use client";
+
+import { useState } from "react";
+import LandingMobileMenu from "@/components/LandingMobileMenu";
+import BackToTop from "@/components/BackToTop";
+
 const features = [
   {
     title: "AI Marketing Campaigns",
@@ -62,47 +68,71 @@ const industries = [
 ];
 
 export default function Home() {
+	  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+	
   return (
     <main className="min-h-screen bg-white text-slate-950">
-      {/* Navigation */}
-      <nav className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 lg:px-8">
-          <div className="text-2xl font-bold tracking-tight">
-            Adverio<span className="text-blue-600">.</span>
-          </div>
+            {/* Navigation */}
+<nav className="relative border-b border-slate-200 bg-white">
+  <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 lg:px-8">
+    <a
+      href="/"
+      className="text-2xl font-bold tracking-tight text-slate-950"
+    >
+      Adverio<span className="text-blue-600">.</span>
+    </a>
 
-          <div className="hidden items-center gap-8 text-sm font-medium text-slate-600 md:flex">
-            <a href="#features" className="transition hover:text-slate-950">
-              Features
-            </a>
-            <a href="#how-it-works" className="transition hover:text-slate-950">
-              How It Works
-            </a>
-            <a href="#industries" className="transition hover:text-slate-950">
-              Industries
-            </a>
-            <a href="#pricing" className="transition hover:text-slate-950">
-              Pricing
-            </a>
-          </div>
+    <div className="hidden items-center gap-8 text-sm font-medium text-slate-600 md:flex">
+      <a
+        href="#features"
+        className="transition hover:text-slate-950"
+      >
+        Features
+      </a>
 
-          <div className="flex items-center gap-3">
-            <a
-              href="/login"
-              className="hidden text-sm font-semibold text-slate-700 transition hover:text-slate-950 sm:block"
-            >
-              Log in
-            </a>
+      <a
+        href="#how-it-works"
+        className="transition hover:text-slate-950"
+      >
+        How It Works
+      </a>
 
-            <a
-              href="/signup"
-              className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
-            >
-              Get Started
-            </a>
-          </div>
-        </div>
-      </nav>
+      <a
+        href="#industries"
+        className="transition hover:text-slate-950"
+      >
+        Industries
+      </a>
+
+      <a
+        href="#pricing"
+        className="transition hover:text-slate-950"
+      >
+        Pricing
+      </a>
+    </div>
+
+    <div className="hidden items-center gap-3 sm:flex">
+      <a
+        href="/login"
+        className="text-sm font-semibold text-slate-700 transition hover:text-slate-950"
+      >
+        Log in
+      </a>
+
+      <a
+        href="/signup"
+        className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+      >
+        Get Started
+      </a>
+    </div>
+
+    <div className="md:hidden">
+      <LandingMobileMenu />
+    </div>
+  </div>
+</nav>
 
       {/* Hero */}
       <section className="relative overflow-hidden">
@@ -417,6 +447,8 @@ export default function Home() {
           </div>
         </div>
       </footer>
+	  
+	  <BackToTop />
     </main>
   );
 }

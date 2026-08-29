@@ -266,40 +266,48 @@ export async function PATCH(
         { status: 400 },
       );
     }
+	
 
     // --------------------------------------------------
     // 7. Update the lead
     // --------------------------------------------------
+	
+	console.log("LEAD STATUS UPDATE:", {
+  leadId: id,
+  previousStatus: existingLead.status,
+  requestedStatus: body.status,
+  updates,
+});
 
-    const { data: updatedLead, error: updateError } =
-      await supabase
-        .from("leads")
-        .update(updates)
-        .eq("id", id)
-        .eq("owner_id", user.id)
-        .select(
-          `
-            id,
-            owner_id,
-            campaign_id,
-            name,
-            email,
-            phone,
-            message,
-            source,
-            status,
-            follow_up_status,
-            created_at,
-            updated_at,
-            ai_response,
-            ai_follow_up,
-            contacted_at,
-            qualified_at,
-            converted_at,
-            lost_at
-          `,
-        )
-        .single();
+const { data: updatedLead, error: updateError } =
+  await supabase
+    .from("leads")
+    .update(updates)
+    .eq("id", id)
+    .eq("owner_id", user.id)
+    .select(
+      `
+        id,
+        owner_id,
+        campaign_id,
+        name,
+        email,
+        phone,
+        message,
+        source,
+        status,
+        follow_up_status,
+        created_at,
+        updated_at,
+        ai_response,
+        ai_follow_up,
+        contacted_at,
+        qualified_at,
+        converted_at,
+        lost_at
+      `,
+    )
+    .single();
 
     if (updateError) {
       console.error(

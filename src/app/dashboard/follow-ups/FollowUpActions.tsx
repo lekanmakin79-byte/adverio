@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Props = {
   followUpId: string;
@@ -11,6 +12,8 @@ export default function FollowUpActions({
   followUpId,
   status,
 }: Props) {
+  const router = useRouter();
+
   const [currentStatus, setCurrentStatus] =
     useState(status);
 
@@ -49,7 +52,7 @@ export default function FollowUpActions({
 
       setCurrentStatus(newStatus);
 
-      window.location.reload();
+      router.refresh();
     } catch (error) {
       console.error(
         "Follow-up action error:",
