@@ -43,22 +43,26 @@ export async function GET(request: Request) {
     const authHeader =
       request.headers.get("authorization");
 
-    const cronSecret =
-      process.env.CRON_SECRET;
+   const cronSecret = process.env.CRON_SECRET;
 
-    if (!cronSecret) {
-      console.error(
-        "CRON_SECRET environment variable is missing.",
-      );
+console.log("CRON_SECRET diagnostic:", {
+  exists: Boolean(cronSecret),
+  length: cronSecret?.length ?? 0,
+});
 
-      return NextResponse.json(
-        {
-          error:
-            "Cron configuration is incomplete.",
-        },
-        { status: 500 },
-      );
-    }
+if (!cronSecret) {
+  console.error(
+    "CRON_SECRET environment variable is missing.",
+  );
+
+  return NextResponse.json(
+    {
+      error:
+        "Cron configuration is incomplete.",
+    },
+    { status: 500 },
+  );
+}
 
     if (
       authHeader !==
