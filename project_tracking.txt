@@ -1,0 +1,123 @@
+The order I recommend
+
+Don't try to build everything simultaneously.
+
+Phase 1 — UX
+
+1. Hamburger menu
+2. Return-to-top button
+3. Mobile responsiveness review
+
+Phase 2 — Automation engine
+
+4. Automation rules/database
+5. Automatic follow-up creation
+6. Due-date logic
+7. Dashboard automation indicators
+
+Phase 3 — Marketing automation
+
+8. Automated lead workflows
+9. Email notifications
+10. Campaign performance tracking
+11. Conversion tracking
+
+Phase 4 — Monetisation
+
+12. Free/Professional plans
+13. Usage limits
+14. Stripe production mode
+15. Subscription management
+
+This gives us a much clearer product:
+
+Adverio — AI Marketing Automation for Small Businesses
+
+rather than simply an AI message generator.
+
+
+Next: Automated Marketing
+
+This is the point where I think we should move Adverio from a collection of useful features into a real marketing automation product.
+
+The workflow should eventually look like:
+
+1. Business profile
+→ Adverio understands the business, services, location and target customers.
+
+2. Create marketing campaign
+→ AI generates the campaign strategy.
+
+3. Generate content
+→ Social posts, promotional emails, offers and other marketing content.
+
+4. Schedule/publish
+→ Content is scheduled rather than simply generated and copied manually.
+
+5. Capture enquiries
+→ Prospects submit an enquiry through the campaign.
+
+6. AI lead response
+→ Adverio responds to the lead.
+
+7. Automated follow-up
+→ If the lead doesn't convert, Adverio follows up at the appropriate time.
+
+8. Conversion
+→ Lead becomes a customer.
+
+9. Analytics
+→ Business owner can see which campaigns generated enquiries and customers.
+
+So the real Adverio proposition becomes:
+
+Adverio doesn't just create your marketing. It helps run it.
+
+
+
+The next development stage
+
+I would build the automation in this order:
+
+Phase 1 — Lead automation
+
+When a new lead arrives:
+
+Save lead.
+Identify campaign/business.
+Generate an AI first-response message.
+Create a follow-up record.
+Show the lead as requiring attention.
+Phase 2 — Automated follow-ups
+
+Add a system that can determine:
+
+follow-up due
+follow-up sent
+follow-up completed
+follow-up cancelled
+customer replied
+Phase 3 — Marketing automation
+
+Add automation around campaigns:
+
+campaign activation
+scheduled marketing content
+campaign status
+lead generation tracking
+follow-up automation
+campaign performance
+Phase 4 — Automation controls
+
+Inside Business Settings:
+
+Marketing Automation
+
+☑ Automatically generate lead responses
+☑ Automatically create follow-ups
+☑ Enable first follow-up
+☑ Enable second follow-up
+Follow-up timing
+Default communication style
+
+This starts turning Adverio from simply an AI marketing generator into an AI marketing automation platform.
