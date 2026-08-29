@@ -26,23 +26,25 @@ export default async function LeadDetailsPage({
   }
 
   const { data: lead, error } = await supabase
-    .from("leads")
-    .select(
-      `
-        id,
-        owner_id,
-        campaign_id,
-        name,
-        email,
-        phone,
-        message,
-        source,
-        status,
-        follow_up_status,
-        created_at,
-        updated_at
-      `,
-    )
+  .from("leads")
+  .select(
+    `
+      id,
+      owner_id,
+      campaign_id,
+      name,
+      email,
+      phone,
+      message,
+      source,
+      status,
+      follow_up_status,
+      created_at,
+      updated_at,
+      ai_response,
+      ai_follow_up
+    `,
+  )
     .eq("id", id)
     .eq("owner_id", user.id)
     .maybeSingle();
@@ -192,15 +194,17 @@ export default async function LeadDetailsPage({
           {/* AI assistant */}
           <aside>
             <LeadAssistant
-              lead={{
-                id: lead.id,
-                name: lead.name,
-                email: lead.email,
-                phone: lead.phone,
-                message: lead.message,
-                status: lead.status,
-                follow_up_status: lead.follow_up_status,
-              }}
+  lead={{
+    id: lead.id,
+    name: lead.name,
+    email: lead.email,
+    phone: lead.phone,
+    message: lead.message,
+    status: lead.status,
+    follow_up_status: lead.follow_up_status,
+    ai_response: lead.ai_response,
+    ai_follow_up: lead.ai_follow_up,
+  }}
               campaign={
                 campaign
                   ? {

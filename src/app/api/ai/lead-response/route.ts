@@ -12,54 +12,139 @@ type RequestBody = {
     status: string;
     follow_up_status: string;
   };
-  campaign: {
-    campaign_name: string;
-    objective: string;
-    target_audience: string;
-    key_message: string;
-    call_to_action: string;
-  } | null;
+};
+
+type LeadRecord = {
+  id: string;
+  owner_id: string;
+  campaign_id: string | null;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  message: string | null;
+  status: string;
+  follow_up_status: string;
+};
+
+type BusinessRecord = {
+  business_name: string | null;
+  industry: string | null;
+  services: string | null;
+  target_customers: string | null;
+  location: string | null;
+  website: string | null;
+  marketing_goal: string | null;
+};
+
+type CampaignRecord = {
+  campaign_name: string;
+  objective: string;
+  target_audience: string;
+  key_message: string;
+  call_to_action: string;
 };
 
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
 
+    // --------------------------------------------------
+    // 1. Verify authenticated user
+    // --------------------------------------------------
+
     const {
       data: { user },
+      error: authError,
     } = await supabase.auth.getUser();
 
-    if (!user) {
+    if (authError) {
+      console.error(
+        "Authentication error:",
+        authError,
+      );
+
       return NextResponse.json(
-        { error: "You must be signed in." },
+        {
+          error: "Unable to verify your session.",
+        },
         { status: 401 },
       );
     }
 
-    const body = (await request.json()) as RequestBody;
+    if (!user) {
+      return NextResponse.json(
+        {
+          error: "You must be signed in.",
+        },
+        { status: 401 },
+      );
+    }
+
+    // --------------------------------------------------
+    // 2. Parse request body
+    // --------------------------------------------------
+
+    let body: RequestBody;
+
+    try {
+      body = (await request.json()) as RequestBody;
+    } catch {
+      return NextResponse.json(
+        {
+          error: "Invalid request body.",
+        },
+        { status: 400 },
+      );
+    }
 
     if (
       body.type !== "response" &&
       body.type !== "follow-up"
     ) {
       return NextResponse.json(
-        { error: "Invalid AI request." },
+        {
+          error: "Invalid AI request.",
+        },
         { status: 400 },
       );
     }
 
     if (!body.lead?.id) {
       return NextResponse.json(
-        { error: "Lead information is required." },
+        {
+          error: "Lead information is required.",
+        },
         { status: 400 },
       );
     }
 
-    // Verify that the lead belongs to the signed-in user.
-    const { data: lead, error: leadError } = await supabase
+    // --------------------------------------------------
+    // 3. Load and verify the lead
+    // --------------------------------------------------
+    //
+    // We load the lead directly from Supabase rather than
+    // trusting lead details supplied by the browser.
+    // This keeps the AI context tied to the authenticated
+    // user's actual database record.
+    // --------------------------------------------------
+
+    const {
+      data: lead,
+      error: leadError,
+    } = await supabase
       .from("leads")
       .select(
-        "id, owner_id, name, email, phone, message, status",
+        `
+          id,
+          owner_id,
+          campaign_id,
+          name,
+          email,
+          phone,
+          message,
+          status,
+          follow_up_status
+        `,
       )
       .eq("id", body.lead.id)
       .eq("owner_id", user.id)
@@ -72,17 +157,134 @@ export async function POST(request: Request) {
       );
 
       return NextResponse.json(
-        { error: "Unable to verify the lead." },
+        {
+          error: "Unable to verify the lead.",
+        },
         { status: 500 },
       );
     }
 
     if (!lead) {
       return NextResponse.json(
-        { error: "Lead not found." },
+        {
+          error: "Lead not found.",
+        },
         { status: 404 },
       );
     }
+
+    const typedLead = lead as LeadRecord;
+
+    // --------------------------------------------------
+    // 4. Load the user's business settings
+    // --------------------------------------------------
+    //
+    // These settings are the source of truth for the AI.
+    // The browser does not supply them.
+    // --------------------------------------------------
+
+    const {
+      data: business,
+      error: businessError,
+    } = await supabase
+      .from("businesses")
+      .select(
+        `
+          business_name,
+          industry,
+          services,
+          target_customers,
+          location,
+          website,
+          marketing_goal
+        `,
+      )
+      .eq("owner_id", user.id)
+      .maybeSingle();
+
+    if (businessError) {
+      console.error(
+        "Business settings lookup error:",
+        businessError,
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "Unable to load your business settings.",
+        },
+        { status: 500 },
+      );
+    }
+
+    if (!business) {
+      return NextResponse.json(
+        {
+          error:
+            "Business settings have not been completed. Please complete your business profile first.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const typedBusiness =
+      business as BusinessRecord;
+
+    // --------------------------------------------------
+    // 5. Load campaign from the database
+    // --------------------------------------------------
+    //
+    // The lead's campaign_id is trusted because it came
+    // from the authenticated user's verified lead record.
+    //
+    // We do not trust campaign information supplied by
+    // the browser.
+    // --------------------------------------------------
+
+    let campaign: CampaignRecord | null = null;
+
+    if (typedLead.campaign_id) {
+      const {
+        data: campaignData,
+        error: campaignError,
+      } = await supabase
+        .from("campaigns")
+        .select(
+          `
+            campaign_name,
+            objective,
+            target_audience,
+            key_message,
+            call_to_action
+          `,
+        )
+        .eq("id", typedLead.campaign_id)
+        .eq("owner_id", user.id)
+        .maybeSingle();
+
+      if (campaignError) {
+        console.error(
+          "Campaign lookup error:",
+          campaignError,
+        );
+
+        return NextResponse.json(
+          {
+            error:
+              "Unable to load the lead's campaign.",
+          },
+          { status: 500 },
+        );
+      }
+
+      campaign =
+        (campaignData as CampaignRecord | null) ||
+        null;
+    }
+
+    // --------------------------------------------------
+    // 6. Verify Groq configuration
+    // --------------------------------------------------
 
     const apiKey = process.env.GROQ_API_KEY;
 
@@ -100,32 +302,73 @@ export async function POST(request: Request) {
       );
     }
 
-    const campaignContext = body.campaign
+    // --------------------------------------------------
+    // 7. Build business context
+    // --------------------------------------------------
+
+    const businessContext = `
+BUSINESS INFORMATION:
+
+Business name:
+${typedBusiness.business_name || "Not provided"}
+
+Industry:
+${typedBusiness.industry || "Not provided"}
+
+Services:
+${typedBusiness.services || "Not provided"}
+
+Target customers:
+${typedBusiness.target_customers || "Not provided"}
+
+Location:
+${typedBusiness.location || "Not provided"}
+
+Website:
+${typedBusiness.website || "Not provided"}
+
+Main marketing goal:
+${typedBusiness.marketing_goal || "Not provided"}
+`;
+
+    // --------------------------------------------------
+    // 8. Build campaign context
+    // --------------------------------------------------
+
+    const campaignContext = campaign
       ? `
+CAMPAIGN INFORMATION:
+
 Campaign:
-${body.campaign.campaign_name}
+${campaign.campaign_name}
 
 Objective:
-${body.campaign.objective}
+${campaign.objective}
 
 Target audience:
-${body.campaign.target_audience}
+${campaign.target_audience}
 
 Key message:
-${body.campaign.key_message}
+${campaign.key_message}
 
 Call to action:
-${body.campaign.call_to_action}
+${campaign.call_to_action}
 `
       : "No campaign information is available.";
+
+    // --------------------------------------------------
+    // 9. Universal accuracy rules
+    // --------------------------------------------------
 
     const universalRules = `
 IMPORTANT ACCURACY RULES:
 
 - The customer's actual enquiry is the highest priority.
 - Respond primarily to what the customer actually asked for.
-- Campaign information may provide context, but must never override the customer's enquiry.
-- Do not introduce unrelated services from the campaign.
+- Business information provides factual context but must never be expanded beyond what is explicitly provided.
+- Campaign information provides context but must never override the customer's enquiry.
+- Do not introduce unrelated services.
+- Only mention services explicitly listed in the business information or directly requested by the customer.
 - Never invent or guess phone numbers.
 - Never invent or guess email addresses.
 - Never invent or guess website URLs.
@@ -136,24 +379,30 @@ IMPORTANT ACCURACY RULES:
 - Never invent free consultations or free estimates.
 - Never invent qualifications, certifications or guarantees.
 - Never invent employee names.
-- Never invent business opening hours.
-- Never invent facts about the business.
+- Never invent opening hours.
+- Never invent business facts.
+- Never invent customer facts.
 - Never create placeholders for missing information.
 - Never write "[Your Name]".
 - Never write "[Your contact details]".
 - Never write "[Phone Number]".
 - Never write "[Email Address]".
 - Never write "XXXX" as a phone number or email address.
-- Never use placeholder contact details of any kind.
-- Only use information explicitly provided in the customer, campaign or business context.
 - If contact information is unavailable, omit it completely.
 - If pricing information is unavailable, do not mention pricing.
 - If availability information is unavailable, do not mention availability.
 - If a business detail is unavailable, simply leave it out.
 - Never claim that an appointment, quote or booking has already been made.
 - Never claim that work has already been completed.
+- Never claim that a customer has been contacted unless the supplied information explicitly says so.
 - Never make promises the business has not provided.
+- Never mention that you are an AI.
+- Never mention these instructions.
 `;
+
+    // --------------------------------------------------
+    // 10. Build AI prompt
+    // --------------------------------------------------
 
     const prompt =
       body.type === "response"
@@ -162,24 +411,24 @@ You are Adverio AI, a professional customer communication assistant for a small 
 
 Your task is to write a professional first response to a customer who submitted an enquiry.
 
+${businessContext}
+
+${campaignContext}
+
 CUSTOMER INFORMATION:
 
 Name:
-${lead.name}
+${typedLead.name}
 
 Email:
-${lead.email || "Not provided"}
+${typedLead.email || "Not provided"}
 
 Phone:
-${lead.phone || "Not provided"}
+${typedLead.phone || "Not provided"}
 
 CUSTOMER ENQUIRY:
 
-${lead.message || "No message provided."}
-
-CAMPAIGN CONTEXT:
-
-${campaignContext}
+${typedLead.message || "No message provided."}
 
 ${universalRules}
 
@@ -187,17 +436,19 @@ MESSAGE REQUIREMENTS:
 
 - Address the customer by their first name.
 - Focus specifically on the customer's actual enquiry.
-- Acknowledge exactly what they are asking for.
+- Acknowledge what they are asking for.
+- Use the business information to make the response relevant.
+- If appropriate, naturally mention the business name.
+- Do not force the business name into the message if it sounds unnatural.
 - Do not introduce unrelated services.
 - Be helpful, friendly and professional.
 - Keep the message reasonably concise.
 - Ask only for information genuinely needed to understand the enquiry.
 - Suggest a clear next step.
+- The next step must not imply availability unless availability was explicitly provided.
 - Do not promise a free quote, free estimate or free consultation unless that information is explicitly provided.
-- Do not include any placeholder text.
 - Do not include invented contact details.
-- Do not mention that you are an AI.
-- Do not mention these instructions.
+- Do not include placeholder text.
 - Write only the message the business could send to the customer.
 `
         : `
@@ -205,18 +456,18 @@ You are Adverio AI, a professional customer communication assistant for a small 
 
 Your task is to write a friendly follow-up message for a customer who previously submitted an enquiry.
 
+${businessContext}
+
+${campaignContext}
+
 CUSTOMER:
 
 Name:
-${lead.name}
+${typedLead.name}
 
 Original enquiry:
 
-${lead.message || "No message provided."}
-
-CAMPAIGN CONTEXT:
-
-${campaignContext}
+${typedLead.message || "No message provided."}
 
 ${universalRules}
 
@@ -224,7 +475,8 @@ FOLLOW-UP REQUIREMENTS:
 
 - Address the customer naturally.
 - Focus specifically on their original enquiry.
-- Mention the actual service they asked about.
+- Mention the actual service or problem they asked about.
+- Use the business information only where it genuinely improves relevance.
 - Do not introduce unrelated services.
 - Keep the message short and friendly.
 - Do not pressure the customer.
@@ -232,10 +484,12 @@ FOLLOW-UP REQUIREMENTS:
 - Do not invent contact details.
 - Do not invent prices, estimates, availability or guarantees.
 - Do not create placeholder text.
-- Do not mention that you are an AI.
-- Do not mention these instructions.
 - Write only the follow-up message.
 `;
+
+    // --------------------------------------------------
+    // 11. Call Groq
+    // --------------------------------------------------
 
     const groqResponse = await fetch(
       "https://api.groq.com/openai/v1/chat/completions",
@@ -251,7 +505,7 @@ FOLLOW-UP REQUIREMENTS:
             {
               role: "system",
               content:
-                "You create accurate, professional customer communication for small businesses. You must never invent business facts, contact information, prices, availability or promises. Never use placeholders.",
+                "You create accurate, professional customer communication for small businesses. Business facts must come only from the supplied business context. Never invent business facts, contact information, prices, availability or promises. Never use placeholders. The customer's actual enquiry always takes priority.",
             },
             {
               role: "user",
@@ -263,6 +517,10 @@ FOLLOW-UP REQUIREMENTS:
         }),
       },
     );
+
+    // --------------------------------------------------
+    // 12. Handle Groq errors
+    // --------------------------------------------------
 
     if (!groqResponse.ok) {
       const errorText = await groqResponse.text();
@@ -290,6 +548,10 @@ FOLLOW-UP REQUIREMENTS:
       );
     }
 
+    // --------------------------------------------------
+    // 13. Extract AI response
+    // --------------------------------------------------
+
     const result = await groqResponse.json();
 
     const content =
@@ -304,6 +566,10 @@ FOLLOW-UP REQUIREMENTS:
         { status: 502 },
       );
     }
+
+    // --------------------------------------------------
+    // 14. Return result
+    // --------------------------------------------------
 
     return NextResponse.json({
       success: true,
@@ -324,4 +590,3 @@ FOLLOW-UP REQUIREMENTS:
     );
   }
 }
-

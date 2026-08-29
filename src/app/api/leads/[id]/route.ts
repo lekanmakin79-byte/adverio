@@ -110,6 +110,7 @@ export async function PATCH(
             id,
             owner_id,
             status,
+            follow_up_status,
             ai_response,
             ai_follow_up,
             contacted_at,
@@ -123,10 +124,7 @@ export async function PATCH(
         .maybeSingle();
 
     if (leadError) {
-      console.error(
-        "Lead lookup error:",
-        leadError,
-      );
+      console.error("Lead lookup error:", leadError);
 
       return NextResponse.json(
         {
@@ -170,6 +168,15 @@ export async function PATCH(
         );
       }
 
+      if (value.length > 5000) {
+        return NextResponse.json(
+          {
+            error: "AI response is too long.",
+          },
+          { status: 400 },
+        );
+      }
+
       updates.ai_response = value;
     }
 
@@ -189,10 +196,26 @@ export async function PATCH(
         );
       }
 
+      if (value.length > 5000) {
+        return NextResponse.json(
+          {
+            error: "AI follow-up is too long.",
+          },
+          { status: 400 },
+        );
+      }
+
       updates.ai_follow_up = value;
 
       savingFollowUp = true;
       followUpMessage = value;
+
+      // Saving an AI follow-up means there is now
+      // a follow-up task associated with this lead.
+      //
+      // "scheduled" is a valid value for
+      // leads.follow_up_status.
+      updates.follow_up_status = "scheduled";
     }
 
     // --------------------------------------------------
@@ -231,6 +254,7 @@ export async function PATCH(
 
       if (
         newStatus === "qualified" &&
+        previousStatus !== "qualified" &&
         !existingLead.qualified_at
       ) {
         updates.qualified_at =
@@ -239,6 +263,7 @@ export async function PATCH(
 
       if (
         newStatus === "converted" &&
+        previousStatus !== "converted" &&
         !existingLead.converted_at
       ) {
         updates.converted_at =
@@ -247,6 +272,7 @@ export async function PATCH(
 
       if (
         newStatus === "lost" &&
+        previousStatus !== "lost" &&
         !existingLead.lost_at
       ) {
         updates.lost_at =
@@ -266,48 +292,51 @@ export async function PATCH(
         { status: 400 },
       );
     }
-	
 
     // --------------------------------------------------
     // 7. Update the lead
     // --------------------------------------------------
-	
-	console.log("LEAD STATUS UPDATE:", {
-  leadId: id,
-  previousStatus: existingLead.status,
-  requestedStatus: body.status,
-  updates,
-});
 
-const { data: updatedLead, error: updateError } =
-  await supabase
-    .from("leads")
-    .update(updates)
-    .eq("id", id)
-    .eq("owner_id", user.id)
-    .select(
-      `
-        id,
-        owner_id,
-        campaign_id,
-        name,
-        email,
-        phone,
-        message,
-        source,
-        status,
-        follow_up_status,
-        created_at,
-        updated_at,
-        ai_response,
-        ai_follow_up,
-        contacted_at,
-        qualified_at,
-        converted_at,
-        lost_at
-      `,
-    )
-    .single();
+    console.log("LEAD UPDATE:", {
+      leadId: id,
+      previousStatus: existingLead.status,
+      requestedStatus: body.status,
+      previousFollowUpStatus:
+        existingLead.follow_up_status,
+      updates,
+    });
+
+    const {
+      data: updatedLead,
+      error: updateError,
+    } = await supabase
+      .from("leads")
+      .update(updates)
+      .eq("id", id)
+      .eq("owner_id", user.id)
+      .select(
+        `
+          id,
+          owner_id,
+          campaign_id,
+          name,
+          email,
+          phone,
+          message,
+          source,
+          status,
+          follow_up_status,
+          created_at,
+          updated_at,
+          ai_response,
+          ai_follow_up,
+          contacted_at,
+          qualified_at,
+          converted_at,
+          lost_at
+        `,
+      )
+      .single();
 
     if (updateError) {
       console.error(
@@ -325,15 +354,18 @@ const { data: updatedLead, error: updateError } =
     }
 
     // --------------------------------------------------
-    // 8. Create follow-up task when AI follow-up is saved
+    // 8. Create or update follow-up task when an
+    //    AI follow-up is saved
     // --------------------------------------------------
 
     let createdFollowUp = null;
 
     if (savingFollowUp && followUpMessage) {
       // Check whether this lead already has a pending
-      // follow-up. This prevents duplicate tasks when
-      // the user saves the same follow-up again.
+      // follow-up.
+      //
+      // This prevents duplicate pending tasks when the
+      // user saves the same AI follow-up again.
 
       const {
         data: existingFollowUp,
@@ -364,7 +396,7 @@ const { data: updatedLead, error: updateError } =
 
       if (existingFollowUp) {
         // Update the existing pending follow-up
-        // instead of creating another duplicate.
+        // instead of creating another one.
 
         const {
           data: updatedFollowUp,
@@ -379,12 +411,14 @@ const { data: updatedLead, error: updateError } =
           .select(
             `
               id,
+              owner_id,
               lead_id,
               message,
               status,
               due_at,
               completed_at,
-              created_at
+              created_at,
+              updated_at
             `,
           )
           .single();
@@ -408,6 +442,7 @@ const { data: updatedLead, error: updateError } =
         createdFollowUp = updatedFollowUp;
       } else {
         // Create a new follow-up for tomorrow.
+
         const dueAt = new Date(
           Date.now() + 24 * 60 * 60 * 1000,
         ).toISOString();
@@ -427,12 +462,14 @@ const { data: updatedLead, error: updateError } =
           .select(
             `
               id,
+              owner_id,
               lead_id,
               message,
               status,
               due_at,
               completed_at,
-              created_at
+              created_at,
+              updated_at
             `,
           )
           .single();

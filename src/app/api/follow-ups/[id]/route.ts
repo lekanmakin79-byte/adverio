@@ -218,38 +218,62 @@ export async function PATCH(
       );
     }
 
-    // --------------------------------------------------
-    // 9. Keep lead follow-up status synchronised
-    // --------------------------------------------------
+    
+// --------------------------------------------------
+// 9. Keep lead follow-up status synchronised
+// --------------------------------------------------
+//
+// follow_ups.status and leads.follow_up_status do not
+// have identical allowed values.
+//
+// follow_ups.status:
+//   pending
+//   completed
+//   cancelled
+//
+// leads.follow_up_status:
+//   pending
+//   scheduled
+//   sent
+//   completed
+//
+// Therefore "cancelled" must NOT be copied directly
+// into leads.follow_up_status.
+//
+// A cancelled follow-up means there is currently no
+// active follow-up task, so the lead returns to
+// "pending".
 
-    const leadFollowUpStatus: FollowUpStatus =
-      newStatus;
+const leadFollowUpStatus =
+  newStatus === "completed"
+    ? "completed"
+    : "pending";
 
-    const { error: leadUpdateError } =
-      await supabase
-        .from("leads")
-        .update({
-          follow_up_status:
-            leadFollowUpStatus,
-        })
-        .eq("id", existingFollowUp.lead_id)
-        .eq("owner_id", user.id);
+const { error: leadUpdateError } =
+  await supabase
+    .from("leads")
+    .update({
+      follow_up_status: leadFollowUpStatus,
+    })
+    .eq("id", existingFollowUp.lead_id)
+    .eq("owner_id", user.id);
 
-    if (leadUpdateError) {
-      console.error(
-        "Lead follow-up status update error:",
-        leadUpdateError,
-      );
+if (leadUpdateError) {
+  console.error(
+    "Lead follow-up status update error:",
+    leadUpdateError,
+  );
 
-      return NextResponse.json(
-        {
-          error:
-            "Follow-up was updated, but the lead follow-up status could not be synchronised.",
-          followUp: updatedFollowUp,
-        },
-        { status: 500 },
-      );
-    }
+  return NextResponse.json(
+    {
+      error:
+        "Follow-up was updated, but the lead follow-up status could not be synchronised.",
+      followUp: updatedFollowUp,
+    },
+    { status: 500 },
+  );
+}
+
 
     // --------------------------------------------------
     // 10. Return successful response
