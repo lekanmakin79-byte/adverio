@@ -37,6 +37,18 @@ const navigation = [
   },
 ];
 
+type Campaign = {
+  id: string;
+  campaign_name: string;
+  status: "draft" | "active" | "paused" | "completed";
+  facebook_post: string | null;
+  instagram_post: string | null;
+  linkedin_post: string | null;
+  email_subject: string | null;
+  email_body: string | null;
+  follow_up_message: string | null;
+};
+
 export default async function DashboardPage() {
   const supabase = await createClient();
 
@@ -61,6 +73,114 @@ export default async function DashboardPage() {
   if (!business) {
     redirect("/onboarding");
   }
+
+  /*
+   * Load dashboard statistics from Supabase.
+   *
+   * These queries are all restricted to the currently
+   * authenticated user's owner_id.
+   */
+  const [
+    { count: activeCampaigns, error: activeCampaignsError },
+    { count: newLeads, error: newLeadsError },
+    { count: pendingFollowUps, error: pendingFollowUpsError },
+    { data: campaigns, error: campaignsError },
+  ] = await Promise.all([
+    supabase
+      .from("campaigns")
+      .select("id", { count: "exact", head: true })
+      .eq("owner_id", user.id)
+      .eq("status", "active"),
+
+    supabase
+      .from("leads")
+      .select("id", { count: "exact", head: true })
+      .eq("owner_id", user.id)
+      .eq("status", "new"),
+
+    supabase
+      .from("follow_ups")
+      .select("id", { count: "exact", head: true })
+      .eq("owner_id", user.id)
+      .eq("status", "pending"),
+
+    supabase
+      .from("campaigns")
+      .select(
+        `
+          id,
+          campaign_name,
+          status,
+          facebook_post,
+          instagram_post,
+          linkedin_post,
+          email_subject,
+          email_body,
+          follow_up_message
+        `,
+      )
+      .eq("owner_id", user.id),
+  ]);
+
+  if (activeCampaignsError) {
+    console.error(
+      "Dashboard active campaigns error:",
+      activeCampaignsError,
+    );
+  }
+
+  if (newLeadsError) {
+    console.error("Dashboard new leads error:", newLeadsError);
+  }
+
+  if (pendingFollowUpsError) {
+    console.error(
+      "Dashboard pending follow-ups error:",
+      pendingFollowUpsError,
+    );
+  }
+
+  if (campaignsError) {
+    console.error("Dashboard content count error:", campaignsError);
+  }
+
+  const campaignList: Campaign[] = campaigns ?? [];
+
+  /*
+   * Count every generated content item that actually contains content.
+   *
+   * Each campaign can contain:
+   * - Facebook post
+   * - Instagram post
+   * - LinkedIn post
+   * - Email
+   * - Follow-up message
+   */
+  const contentCreated = campaignList.reduce((total, campaign) => {
+    let count = total;
+
+    if (campaign.facebook_post?.trim()) {
+      count += 1;
+    }
+
+    if (campaign.instagram_post?.trim()) {
+      count += 1;
+    }
+
+    if (campaign.linkedin_post?.trim()) {
+      count += 1;
+    }
+
+    if (campaign.email_body?.trim()) {
+      count += 1;
+    }
+
+    if (campaign.follow_up_message?.trim()) {
+      count += 1;
+    }
+
+    return count;
+  }, 0);
 
   const firstName =
     user.user_metadata?.full_name?.split(" ")[0] ||
@@ -121,6 +241,7 @@ export default async function DashboardPage() {
                   <span className="flex h-7 w-7 items-center justify-center rounded-md text-base">
                     ⚙
                   </span>
+
                   Business Settings
                 </Link>
               </div>
@@ -144,24 +265,22 @@ export default async function DashboardPage() {
         <div className="min-w-0 flex-1">
           {/* Top bar */}
           <header className="border-b border-slate-200 bg-white">
-  <div className="flex h-20 items-center justify-between px-6 lg:px-8">
-    <div className="flex items-center gap-3">
-      <DashboardMobileMenu />
+            <div className="flex h-20 items-center justify-between px-6 lg:px-8">
+              <div className="flex items-center gap-3">
+                <DashboardMobileMenu />
 
-      <div>
-        <p className="text-sm text-slate-500 lg:hidden">
-          Adverio
-        </p>
+                <div>
+                  <p className="text-sm text-slate-500 lg:hidden">
+                    Adverio
+                  </p>
 
-        <h1 className="text-xl font-bold text-slate-950">
-          Dashboard
-        </h1>
-      </div>
-    </div>
+                  <h1 className="text-xl font-bold text-slate-950">
+                    Dashboard
+                  </h1>
+                </div>
+              </div>
 
-    <div className="flex items-center gap-3">
-
-
+              <div className="flex items-center gap-3">
                 <Link
                   href="/dashboard/settings"
                   className="hidden rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 sm:block"
@@ -212,32 +331,32 @@ export default async function DashboardPage() {
               </div>
             </section>
 
-            {/* Stats */}
+            {/* Dynamic stats */}
             <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard
                 label="Active campaigns"
-                value="0"
+                value={String(activeCampaigns ?? 0)}
                 description="AI campaigns running"
                 icon="✦"
               />
 
               <StatCard
                 label="New leads"
-                value="0"
+                value={String(newLeads ?? 0)}
                 description="Enquiries captured"
                 icon="♙"
               />
 
               <StatCard
                 label="Follow-ups"
-                value="0"
+                value={String(pendingFollowUps ?? 0)}
                 description="Waiting for action"
                 icon="↗"
               />
 
               <StatCard
                 label="Content created"
-                value="0"
+                value={String(contentCreated)}
                 description="AI-generated content"
                 icon="▤"
               />
@@ -276,9 +395,9 @@ export default async function DashboardPage() {
                   />
 
                   <QuickAction
-                    href="/dashboard/content/new"
-                    title="Create content"
-                    description="Generate marketing content"
+                    href="/dashboard/content"
+                    title="View content"
+                    description="Review marketing content"
                   />
 
                   <QuickAction
@@ -434,8 +553,8 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
-	  
-	  <BackToTop />
+
+      <BackToTop />
     </main>
   );
 }
@@ -456,6 +575,7 @@ function StatCard({
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm font-medium text-slate-500">{label}</p>
+
           <p className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
             {value}
           </p>
@@ -486,7 +606,10 @@ function QuickAction({
       className="rounded-xl border border-slate-200 p-4 transition hover:border-blue-300 hover:bg-blue-50"
     >
       <p className="font-semibold text-slate-950">{title}</p>
-      <p className="mt-1 text-xs leading-5 text-slate-500">{description}</p>
+
+      <p className="mt-1 text-xs leading-5 text-slate-500">
+        {description}
+      </p>
     </Link>
   );
 }
@@ -525,7 +648,9 @@ function AutomationStep({
   return (
     <div className="rounded-xl border border-slate-200 p-5">
       <div className="flex items-center justify-between">
-        <span className="text-2xl font-bold text-blue-100">{number}</span>
+        <span className="text-2xl font-bold text-blue-100">
+          {number}
+        </span>
 
         <span
           className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
