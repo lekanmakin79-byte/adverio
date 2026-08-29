@@ -4,9 +4,16 @@ import { createClient } from "@/lib/supabase/server";
 export async function POST(request: Request) {
   const supabase = await createClient();
 
-  await supabase.auth.signOut();
+  const { error } = await supabase.auth.signOut({
+    scope: "local",
+  });
 
-  const url = new URL("/login", request.url);
+  if (error) {
+    console.error("Sign out error:", error);
+  }
 
-  return NextResponse.redirect(url);
+  return NextResponse.redirect(
+    new URL("/login", request.url),
+    303,
+  );
 }
