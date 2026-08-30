@@ -28,8 +28,46 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  
+  const [linkedinConnected, setLinkedinConnected] =
+  useState(false);
 
   useEffect(() => {
+	  const params = new URLSearchParams(
+  window.location.search,
+);
+
+const linkedinStatus = params.get("linkedin");
+
+if (linkedinStatus === "connected") {
+  setLinkedinConnected(true);
+  setMessage("LinkedIn connected successfully.");
+}
+
+if (linkedinStatus === "error") {
+  setError(
+    "Unable to connect LinkedIn. Please try again.",
+  );
+}
+
+if (linkedinStatus === "invalid_state") {
+  setError(
+    "LinkedIn connection expired. Please try again.",
+  );
+
+}
+
+if (linkedinStatus === "token_error") {
+  setError(
+    "LinkedIn authorization could not be completed.",
+  );
+}
+
+if (linkedinStatus === "save_error") {
+  setError(
+    "LinkedIn was authorized, but the connection could not be saved.",
+  );
+}
     async function loadBusiness() {
       setError("");
 
@@ -462,6 +500,37 @@ export default function SettingsPage() {
               disabled={saving}
               className="w-full rounded-xl bg-slate-950 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
             >
+			
+			<div className="mb-8 rounded-2xl border border-slate-200 bg-slate-50 p-6">
+  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h2 className="text-lg font-bold text-slate-950">
+        Social connections
+      </h2>
+
+      <p className="mt-1 text-sm leading-6 text-slate-500">
+        Connect your LinkedIn account so Adverio can
+        publish your marketing content for you.
+      </p>
+    </div>
+
+    <a
+      href="/api/auth/linkedin"
+      className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+    >
+      {linkedinConnected
+        ? "Reconnect LinkedIn"
+        : "Connect LinkedIn"}
+    </a>
+  </div>
+
+  {linkedinConnected && (
+    <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+      LinkedIn is connected and ready for publishing.
+    </div>
+  )}
+</div>
+			
               {saving ? "Saving..." : "Save changes"}
             </button>
           </div>
