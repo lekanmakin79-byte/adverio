@@ -15,6 +15,13 @@ const navigation = [
     href: "/dashboard/campaigns",
     icon: "✦",
   },
+  
+    {
+    label: "Marketing",
+    href: "/dashboard/marketing",
+    icon: "⚡",
+  },
+  
   {
     label: "Content",
     href: "/dashboard/content",

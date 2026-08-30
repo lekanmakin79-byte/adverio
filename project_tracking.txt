@@ -121,3 +121,104 @@ Follow-up timing
 Default communication style
 
 This starts turning Adverio from simply an AI marketing generator into an AI marketing automation platform.
+
+
+Then: Adverio Marketing Automation 🚀
+
+Once deployment is confirmed, I suggest we build the automation around this existing foundation rather than starting another disconnected feature.
+
+The architecture should become:
+
+                    ADVERIO
+                       │
+        ┌──────────────┴──────────────┐
+        │                             │
+      LEADS                        CAMPAIGNS
+        │                             │
+        ▼                             ▼
+   AI RESPONSE                 MARKETING CONTENT
+        │                             │
+        ▼                             ▼
+   AI FOLLOW-UP                SCHEDULE / PUBLISH
+        │                             │
+        ▼                             ▼
+  FOLLOW-UP TASK                  AUTOMATION
+        │                             │
+        └──────────────┬──────────────┘
+                       ▼
+                 BUSINESS GROWTH
+The marketing automation side should eventually cover
+
+1. Campaigns
+
+Create and manage campaigns with:
+
+Campaign name
+Objective
+Target audience
+Key message
+Call to action
+Campaign status
+
+2. AI content generation
+
+Adverio generates content based on the business profile and campaign:
+
+Facebook posts
+Instagram posts
+LinkedIn posts
+Promotional content
+Email marketing copy
+Short-form marketing content
+
+3. Content library
+
+Every generated piece should be saved rather than disappearing after generation.
+
+For example:
+
+Draft
+Scheduled
+Published
+Archived
+
+4. Marketing calendar
+
+A business owner should eventually be able to see:
+
+MON   TUE   WED   THU   FRI   SAT   SUN
+       │
+       ├── Facebook post
+       ├── Instagram post
+       └── Email campaign
+
+5. Scheduling
+
+The user chooses:
+
+Platform
+Content
+Date
+Time
+
+and Adverio stores the scheduled item.
+
+6. Automation
+
+Eventually:
+
+New campaign
+      ↓
+AI generates content
+      ↓
+User reviews
+      ↓
+Approve
+      ↓
+Schedule
+      ↓
+Publish
+      ↓
+Track result
+
+And importantly, we'll keep the same human approval principle you've already implemented for lead communication.

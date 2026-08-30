@@ -14,6 +14,10 @@ label: "AI Campaigns",
 href: "/dashboard/campaigns",
 },
 {
+label: "Marketing",
+href: "/dashboard/marketing",
+},
+{
 label: "Content",
 href: "/dashboard/content",
 },

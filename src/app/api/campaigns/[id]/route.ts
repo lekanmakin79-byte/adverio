@@ -89,7 +89,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 4. Validate requested status
+    // 4. Validate status
     // --------------------------------------------------
 
     if (!isValidStatus(body.status)) {
@@ -143,7 +143,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 6. Prevent changes to completed campaigns
+    // 6. Completed campaigns cannot be changed
     // --------------------------------------------------
 
     if (existingCampaign.status === "completed") {
@@ -157,7 +157,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 7. Prevent unnecessary updates
+    // 7. No change required
     // --------------------------------------------------
 
     if (existingCampaign.status === newStatus) {
@@ -168,7 +168,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 8. Update campaign
+    // 8. Update campaign status
     // --------------------------------------------------
 
     const {
@@ -202,9 +202,286 @@ export async function PATCH(
       );
     }
 
+    // --------------------------------------------------
+    // 9. Find existing marketing automation
+    // --------------------------------------------------
+
+    const {
+      data: existingAutomation,
+      error: automationLookupError,
+    } = await supabase
+      .from("marketing_automations")
+      .select(
+        "id, status, frequency, start_date, end_date",
+      )
+      .eq("campaign_id", id)
+      .eq("owner_id", user.id)
+      .maybeSingle();
+
+    if (automationLookupError) {
+      console.error(
+        "Marketing automation lookup error:",
+        automationLookupError,
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "Campaign updated, but the marketing automation could not be checked.",
+        },
+        { status: 500 },
+      );
+    }
+
+    // --------------------------------------------------
+    // 10. Activate campaign
+    //
+    // Create an automation if one does not exist.
+    // Otherwise reactivate the existing automation.
+    // --------------------------------------------------
+
+    if (newStatus === "active") {
+      if (!existingAutomation) {
+        const {
+          data: automation,
+          error: automationInsertError,
+        } = await supabase
+          .from("marketing_automations")
+          .insert({
+            owner_id: user.id,
+            campaign_id: id,
+            status: "active",
+            frequency: "weekly",
+            start_date: new Date()
+              .toISOString()
+              .split("T")[0],
+          })
+          .select()
+          .single();
+
+        if (automationInsertError) {
+          console.error(
+            "Marketing automation creation error:",
+            automationInsertError,
+          );
+
+          return NextResponse.json(
+            {
+              error:
+                "Campaign was activated, but the marketing automation could not be created.",
+            },
+            { status: 500 },
+          );
+        }
+
+        return NextResponse.json({
+          success: true,
+          campaign: updatedCampaign,
+          automation,
+          message:
+            "Campaign activated and marketing automation created.",
+        });
+      }
+
+      const {
+        data: automation,
+        error: automationUpdateError,
+      } = await supabase
+        .from("marketing_automations")
+        .update({
+          status: "active",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existingAutomation.id)
+        .eq("owner_id", user.id)
+        .select()
+        .single();
+
+      if (automationUpdateError) {
+        console.error(
+          "Marketing automation activation error:",
+          automationUpdateError,
+        );
+
+        return NextResponse.json(
+          {
+            error:
+              "Campaign was activated, but the marketing automation could not be activated.",
+          },
+          { status: 500 },
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        campaign: updatedCampaign,
+        automation,
+        message:
+          "Campaign activated and marketing automation resumed.",
+      });
+    }
+
+    // --------------------------------------------------
+    // 11. Pause campaign
+    // --------------------------------------------------
+
+    if (newStatus === "paused") {
+      if (existingAutomation) {
+        const {
+          data: automation,
+          error: automationUpdateError,
+        } = await supabase
+          .from("marketing_automations")
+          .update({
+            status: "paused",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingAutomation.id)
+          .eq("owner_id", user.id)
+          .select()
+          .single();
+
+        if (automationUpdateError) {
+          console.error(
+            "Marketing automation pause error:",
+            automationUpdateError,
+          );
+
+          return NextResponse.json(
+            {
+              error:
+                "Campaign was paused, but the marketing automation could not be paused.",
+            },
+            { status: 500 },
+          );
+        }
+
+        return NextResponse.json({
+          success: true,
+          campaign: updatedCampaign,
+          automation,
+          message:
+            "Campaign paused and marketing automation paused.",
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        campaign: updatedCampaign,
+        automation: null,
+        message: "Campaign paused.",
+      });
+    }
+
+    // --------------------------------------------------
+    // 12. Complete campaign
+    // --------------------------------------------------
+
+    if (newStatus === "completed") {
+      if (existingAutomation) {
+        const {
+          data: automation,
+          error: automationUpdateError,
+        } = await supabase
+          .from("marketing_automations")
+          .update({
+            status: "completed",
+            end_date: new Date()
+              .toISOString()
+              .split("T")[0],
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingAutomation.id)
+          .eq("owner_id", user.id)
+          .select()
+          .single();
+
+        if (automationUpdateError) {
+          console.error(
+            "Marketing automation completion error:",
+            automationUpdateError,
+          );
+
+          return NextResponse.json(
+            {
+              error:
+                "Campaign was completed, but the marketing automation could not be completed.",
+            },
+            { status: 500 },
+          );
+        }
+
+        return NextResponse.json({
+          success: true,
+          campaign: updatedCampaign,
+          automation,
+          message:
+            "Campaign completed and marketing automation completed.",
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        campaign: updatedCampaign,
+        automation: null,
+        message: "Campaign completed.",
+      });
+    }
+
+    // --------------------------------------------------
+    // 13. Draft campaign
+    // --------------------------------------------------
+
+    if (newStatus === "draft") {
+      if (existingAutomation) {
+        const {
+          data: automation,
+          error: automationUpdateError,
+        } = await supabase
+          .from("marketing_automations")
+          .update({
+            status: "paused",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingAutomation.id)
+          .eq("owner_id", user.id)
+          .select()
+          .single();
+
+        if (automationUpdateError) {
+          console.error(
+            "Marketing automation draft update error:",
+            automationUpdateError,
+          );
+
+          return NextResponse.json(
+            {
+              error:
+                "Campaign was changed to draft, but the marketing automation could not be paused.",
+            },
+            { status: 500 },
+          );
+        }
+
+        return NextResponse.json({
+          success: true,
+          campaign: updatedCampaign,
+          automation,
+          message:
+            "Campaign moved to draft and marketing automation paused.",
+        });
+      }
+    }
+
+    // --------------------------------------------------
+    // 14. Normal response
+    // --------------------------------------------------
+
     return NextResponse.json({
       success: true,
       campaign: updatedCampaign,
+      automation: existingAutomation ?? null,
+      message: `Campaign marked as ${newStatus}.`,
     });
   } catch (error) {
     console.error(
@@ -221,6 +498,10 @@ export async function PATCH(
     );
   }
 }
+
+// ======================================================
+// DELETE CAMPAIGN
+// ======================================================
 
 export async function DELETE(
   _request: Request,
@@ -315,14 +596,100 @@ export async function DELETE(
     }
 
     // --------------------------------------------------
-    // 5. Delete campaign
+    // 5. Find automation
     // --------------------------------------------------
 
-    const { error: deleteError } = await supabase
-      .from("campaigns")
-      .delete()
-      .eq("id", id)
-      .eq("owner_id", user.id);
+    const {
+      data: automation,
+      error: automationLookupError,
+    } = await supabase
+      .from("marketing_automations")
+      .select("id")
+      .eq("campaign_id", id)
+      .eq("owner_id", user.id)
+      .maybeSingle();
+
+    if (automationLookupError) {
+      console.error(
+        "Marketing automation delete lookup error:",
+        automationLookupError,
+      );
+
+      return NextResponse.json(
+        {
+          error:
+            "Unable to check the campaign automation.",
+        },
+        { status: 500 },
+      );
+    }
+
+    // --------------------------------------------------
+    // 6. Delete marketing tasks first
+    //
+    // marketing_tasks references marketing_automations.
+    // --------------------------------------------------
+
+    if (automation) {
+      const { error: taskDeleteError } =
+        await supabase
+          .from("marketing_tasks")
+          .delete()
+          .eq("automation_id", automation.id)
+          .eq("owner_id", user.id);
+
+      if (taskDeleteError) {
+        console.error(
+          "Marketing task delete error:",
+          taskDeleteError,
+        );
+
+        return NextResponse.json(
+          {
+            error:
+              "Unable to remove the campaign's marketing tasks.",
+          },
+          { status: 500 },
+        );
+      }
+
+      // ------------------------------------------------
+      // 7. Delete marketing automation
+      // ------------------------------------------------
+
+      const { error: automationDeleteError } =
+        await supabase
+          .from("marketing_automations")
+          .delete()
+          .eq("id", automation.id)
+          .eq("owner_id", user.id);
+
+      if (automationDeleteError) {
+        console.error(
+          "Marketing automation delete error:",
+          automationDeleteError,
+        );
+
+        return NextResponse.json(
+          {
+            error:
+              "Unable to remove the campaign's marketing automation.",
+          },
+          { status: 500 },
+        );
+      }
+    }
+
+    // --------------------------------------------------
+    // 8. Delete campaign
+    // --------------------------------------------------
+
+    const { error: deleteError } =
+      await supabase
+        .from("campaigns")
+        .delete()
+        .eq("id", id)
+        .eq("owner_id", user.id);
 
     if (deleteError) {
       console.error(
@@ -341,7 +708,8 @@ export async function DELETE(
 
     return NextResponse.json({
       success: true,
-      message: "Campaign deleted successfully.",
+      message:
+        "Campaign and its marketing automation deleted successfully.",
     });
   } catch (error) {
     console.error(

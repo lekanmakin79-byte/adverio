@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { publishFacebookPost } from "@/lib/facebook";
 
 const VALID_CHANNELS = [
   "facebook",
@@ -21,6 +22,9 @@ type MarketingTask = {
   scheduled_for: string;
   status: string;
   content: string | null;
+  marketing_automations: {
+    status: string;
+  }[];
 };
 
 function isValidChannel(
@@ -36,33 +40,29 @@ export async function GET(request: Request) {
     /*
      * Protect the cron endpoint.
      *
-     * Vercel Cron sends the CRON_SECRET as:
+     * Vercel Cron sends:
      *
      * Authorization: Bearer <CRON_SECRET>
      */
     const authHeader =
       request.headers.get("authorization");
 
-   const cronSecret = process.env.CRON_SECRET;
+    const cronSecret =
+      process.env.CRON_SECRET;
 
-console.log("CRON_SECRET diagnostic:", {
-  exists: Boolean(cronSecret),
-  length: cronSecret?.length ?? 0,
-});
+    if (!cronSecret) {
+      console.error(
+        "CRON_SECRET environment variable is missing.",
+      );
 
-if (!cronSecret) {
-  console.error(
-    "CRON_SECRET environment variable is missing.",
-  );
-
-  return NextResponse.json(
-    {
-      error:
-        "Cron configuration is incomplete.",
-    },
-    { status: 500 },
-  );
-}
+      return NextResponse.json(
+        {
+          error:
+            "Cron configuration is incomplete.",
+        },
+        { status: 500 },
+      );
+    }
 
     if (
   authHeader !==
@@ -71,51 +71,50 @@ if (!cronSecret) {
   return NextResponse.json(
     {
       error: "Unauthorized.",
-      diagnostic: {
-        vercel_secret_exists: Boolean(cronSecret),
-        vercel_secret_length: cronSecret?.length ?? 0,
-        received_header_exists: Boolean(authHeader),
-        received_header_length: authHeader?.length ?? 0,
-      },
     },
     { status: 401 },
   );
 }
 
-    const supabase = createAdminClient();
+    const supabase =
+      createAdminClient();
 
     /*
-     * Find tasks that are due.
-     *
-     * We only process scheduled tasks whose
-     * scheduled_for time has arrived.
+     * Current UTC time.
      */
     const now =
       new Date().toISOString();
 
-    const {
-      data: tasks,
-      error: taskError,
-    } = await supabase
-      .from("marketing_tasks")
-      .select(
-        `
-          id,
-          owner_id,
-          automation_id,
-          campaign_id,
-          channel,
-          scheduled_for,
-          status,
-          content
-        `,
+    /*
+     * Find scheduled tasks that are due.
+     */
+   const {
+  data: tasks,
+  error: taskError,
+} = await supabase
+  .from("marketing_tasks")
+  .select(
+    `
+      id,
+      owner_id,
+      automation_id,
+      campaign_id,
+      channel,
+      scheduled_for,
+      status,
+      content,
+      marketing_automations!inner (
+        status
       )
-      .eq("status", "scheduled")
-      .lte("scheduled_for", now)
-      .order("scheduled_for", {
-        ascending: true,
-      })
-      .limit(50);
+    `,
+  )
+  .eq("status", "scheduled")
+  .eq("marketing_automations.status", "active")
+  .lte("scheduled_for", now)
+  .order("scheduled_for", {
+    ascending: true,
+  })
+  .limit(50);
 
     if (taskError) {
       console.error(
@@ -127,6 +126,8 @@ if (!cronSecret) {
         {
           error:
             "Unable to load scheduled marketing tasks.",
+          database_error:
+            taskError.message,
         },
         { status: 500 },
       );
@@ -135,13 +136,40 @@ if (!cronSecret) {
     const marketingTasks =
       (tasks as MarketingTask[] | null) ?? [];
 
+    /*
+     * Return useful diagnostic information.
+     */
     if (marketingTasks.length === 0) {
+      console.log(
+        "Marketing executor: no due tasks.",
+        {
+          now,
+        },
+      );
+
       return NextResponse.json({
         success: true,
-        message: "No marketing tasks are due.",
+        message:
+          "No marketing tasks are due.",
         processed: 0,
+        skipped: 0,
+        failed: 0,
+        total_due: 0,
+        checked_at: now,
       });
     }
+
+    console.log(
+      "Marketing executor found due tasks:",
+      {
+        now,
+        count: marketingTasks.length,
+        task_ids:
+          marketingTasks.map(
+            (task) => task.id,
+          ),
+      },
+    );
 
     let processed = 0;
     let skipped = 0;
@@ -152,17 +180,32 @@ if (!cronSecret) {
      */
     for (const task of marketingTasks) {
       try {
+        /*
+         * Validate channel.
+         */
         if (!isValidChannel(task.channel)) {
-          await supabase
-            .from("marketing_tasks")
-            .update({
-              status: "failed",
-              error_message:
-                `Unsupported marketing channel: ${task.channel}`,
-              updated_at:
-                new Date().toISOString(),
-            })
-            .eq("id", task.id);
+          const { error } =
+            await supabase
+              .from("marketing_tasks")
+              .update({
+                status: "failed",
+                error_message:
+                  `Unsupported marketing channel: ${task.channel}`,
+                updated_at:
+                  new Date().toISOString(),
+              })
+              .eq("id", task.id)
+              .eq("status", "scheduled");
+
+          if (error) {
+            console.error(
+              "Failed to mark invalid-channel task:",
+              {
+                task_id: task.id,
+                error,
+              },
+            );
+          }
 
           failed += 1;
           continue;
@@ -172,31 +215,33 @@ if (!cronSecret) {
          * Do not execute tasks with empty content.
          */
         if (!task.content?.trim()) {
-          await supabase
-            .from("marketing_tasks")
-            .update({
-              status: "failed",
-              error_message:
-                "Marketing task has no content.",
-              updated_at:
-                new Date().toISOString(),
-            })
-            .eq("id", task.id);
+          const { error } =
+            await supabase
+              .from("marketing_tasks")
+              .update({
+                status: "failed",
+                error_message:
+                  "Marketing task has no content.",
+                updated_at:
+                  new Date().toISOString(),
+              })
+              .eq("id", task.id)
+              .eq("status", "scheduled");
+
+          if (error) {
+            console.error(
+              "Failed to mark empty-content task:",
+              {
+                task_id: task.id,
+                error,
+              },
+            );
+          }
 
           failed += 1;
           continue;
         }
 
-        /*
-         * IMPORTANT:
-         *
-         * At this stage we record the task as
-         * processed by the automation engine.
-         *
-         * Actual Facebook / Instagram / LinkedIn
-         * publishing and email delivery will be
-         * connected separately.
-         */
         console.log(
           "Processing marketing task:",
           {
@@ -207,7 +252,127 @@ if (!cronSecret) {
           },
         );
 
-        await supabase
+                /*
+         * Execute the actual marketing action.
+         *
+         * Facebook tasks must be successfully published
+         * before they can be marked as completed.
+         */
+        if (task.channel === "facebook") {
+          const facebookResult =
+            await publishFacebookPost(
+              task.owner_id,
+              task.content,
+            );
+
+          if (!facebookResult.success) {
+            const { error: failureUpdateError } =
+              await supabase
+                .from("marketing_tasks")
+                .update({
+                  status: "failed",
+                  error_message:
+                    facebookResult.error ??
+                    "Facebook publishing failed.",
+                  updated_at:
+                    new Date().toISOString(),
+                })
+                .eq("id", task.id)
+                .eq("status", "scheduled");
+
+            if (failureUpdateError) {
+              console.error(
+                "Failed to mark Facebook task as failed:",
+                {
+                  task_id: task.id,
+                  error: failureUpdateError,
+                },
+              );
+            }
+
+            console.error(
+              "Facebook marketing task failed:",
+              {
+                task_id: task.id,
+                error:
+                  facebookResult.error,
+              },
+            );
+
+            failed += 1;
+            continue;
+          }
+
+          /*
+           * Facebook published successfully.
+           * Only now mark the task completed.
+           */
+          const {
+            data: updatedFacebookTask,
+            error: facebookUpdateError,
+          } = await supabase
+            .from("marketing_tasks")
+            .update({
+              status: "completed",
+              executed_at:
+                new Date().toISOString(),
+              error_message: null,
+              updated_at:
+                new Date().toISOString(),
+            })
+            .eq("id", task.id)
+            .eq("status", "scheduled")
+            .select("id,status,executed_at")
+            .maybeSingle();
+
+          if (facebookUpdateError) {
+            console.error(
+              "Facebook task completion update failed:",
+              {
+                task_id: task.id,
+                error: facebookUpdateError,
+              },
+            );
+
+            failed += 1;
+            continue;
+          }
+
+          if (!updatedFacebookTask) {
+            console.error(
+              "Facebook task was not updated after successful publishing:",
+              {
+                task_id: task.id,
+                post_id:
+                  facebookResult.post_id,
+              },
+            );
+
+            skipped += 1;
+            continue;
+          }
+
+          console.log(
+            "Facebook marketing task completed:",
+            {
+              task_id: task.id,
+              post_id:
+                facebookResult.post_id,
+            },
+          );
+
+          processed += 1;
+          continue;
+        }
+
+        /*
+         * Non-Facebook channels currently retain
+         * the existing completion behaviour.
+         */
+        const {
+          data: updatedTask,
+          error: updateError,
+        } = await supabase
           .from("marketing_tasks")
           .update({
             status: "completed",
@@ -218,7 +383,43 @@ if (!cronSecret) {
               new Date().toISOString(),
           })
           .eq("id", task.id)
-          .eq("status", "scheduled");
+          .eq("status", "scheduled")
+          .select("id,status,executed_at")
+          .maybeSingle();
+
+        if (updateError) {
+          console.error(
+            "Marketing task update failed:",
+            {
+              task_id: task.id,
+              error: updateError,
+            },
+          );
+
+          failed += 1;
+          continue;
+        }
+
+        /*
+         * If no row was updated, something changed
+         * between SELECT and UPDATE.
+         */
+        if (!updatedTask) {
+          console.error(
+            "Marketing task was not updated:",
+            {
+              task_id: task.id,
+            },
+          );
+
+          skipped += 1;
+          continue;
+        }
+
+        console.log(
+          "Marketing task completed:",
+          updatedTask,
+        );
 
         processed += 1;
       } catch (taskError) {
@@ -227,18 +428,30 @@ if (!cronSecret) {
           taskError,
         );
 
-        await supabase
-          .from("marketing_tasks")
-          .update({
-            status: "failed",
-            error_message:
-              taskError instanceof Error
-                ? taskError.message
-                : "Unknown task execution error.",
-            updated_at:
-              new Date().toISOString(),
-          })
-          .eq("id", task.id);
+        const { error: failureUpdateError } =
+          await supabase
+            .from("marketing_tasks")
+            .update({
+              status: "failed",
+              error_message:
+                taskError instanceof Error
+                  ? taskError.message
+                  : "Unknown task execution error.",
+              updated_at:
+                new Date().toISOString(),
+            })
+            .eq("id", task.id);
+
+        if (failureUpdateError) {
+          console.error(
+            "Failed to mark task as failed:",
+            {
+              task_id: task.id,
+              error:
+                failureUpdateError,
+            },
+          );
+        }
 
         failed += 1;
       }
@@ -249,7 +462,9 @@ if (!cronSecret) {
       processed,
       skipped,
       failed,
-      total_due: marketingTasks.length,
+      total_due:
+        marketingTasks.length,
+      checked_at: now,
     });
   } catch (error) {
     console.error(
