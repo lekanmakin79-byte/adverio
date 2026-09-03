@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { publishFacebookPost } from "@/lib/facebook";
+import { publishLinkedInPost } from "@/lib/linkedin";
+import { publishInstagramPost } from "@/lib/instagram";
 
 const VALID_CHANNELS = [
   "facebook",
@@ -22,6 +24,9 @@ type MarketingTask = {
   scheduled_for: string;
   status: string;
   content: string | null;
+  campaigns: {
+    image_url: string | null;
+  }[];
   marketing_automations: {
     status: string;
   }[];
@@ -35,15 +40,58 @@ function isValidChannel(
   );
 }
 
+async function markTaskFailed(
+  supabase: ReturnType<typeof createAdminClient>,
+  taskId: string,
+  errorMessage: string,
+) {
+  const { error } = await supabase
+    .from("marketing_tasks")
+    .update({
+      status: "failed",
+      error_message: errorMessage,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", taskId)
+    .eq("status", "scheduled");
+
+  if (error) {
+    console.error(
+      "Failed to mark marketing task as failed:",
+      {
+        task_id: taskId,
+        error,
+      },
+    );
+  }
+}
+
+async function markTaskCompleted(
+  supabase: ReturnType<typeof createAdminClient>,
+  taskId: string,
+) {
+  return await supabase
+    .from("marketing_tasks")
+    .update({
+      status: "completed",
+      executed_at: new Date().toISOString(),
+      error_message: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", taskId)
+    .eq("status", "scheduled")
+    .select("id,status,executed_at")
+    .maybeSingle();
+}
+
 export async function GET(request: Request) {
   try {
     /*
-     * Protect the cron endpoint.
-     *
-     * Vercel Cron sends:
-     *
-     * Authorization: Bearer <CRON_SECRET>
+     * ----------------------------------------------------
+     * 1. PROTECT CRON ENDPOINT
+     * ----------------------------------------------------
      */
+
     const authHeader =
       request.headers.get("authorization");
 
@@ -65,56 +113,68 @@ export async function GET(request: Request) {
     }
 
     if (
-  authHeader !==
-  `Bearer ${cronSecret}`
-) {
-  return NextResponse.json(
-    {
-      error: "Unauthorized.",
-    },
-    { status: 401 },
-  );
-}
+      authHeader !==
+      `Bearer ${cronSecret}`
+    ) {
+      return NextResponse.json(
+        {
+          error: "Unauthorized.",
+        },
+        { status: 401 },
+      );
+    }
 
     const supabase =
       createAdminClient();
 
     /*
-     * Current UTC time.
+     * ----------------------------------------------------
+     * 2. CURRENT UTC TIME
+     * ----------------------------------------------------
      */
+
     const now =
       new Date().toISOString();
 
     /*
-     * Find scheduled tasks that are due.
+     * ----------------------------------------------------
+     * 3. FIND DUE MARKETING TASKS
+     * ----------------------------------------------------
      */
-   const {
-  data: tasks,
-  error: taskError,
-} = await supabase
-  .from("marketing_tasks")
-  .select(
-    `
-      id,
-      owner_id,
-      automation_id,
-      campaign_id,
-      channel,
-      scheduled_for,
-      status,
-      content,
-      marketing_automations!inner (
-        status
+
+    const {
+      data: tasks,
+      error: taskError,
+    } = await supabase
+      .from("marketing_tasks")
+      .select(
+  `
+    id,
+    owner_id,
+    automation_id,
+    campaign_id,
+    channel,
+    scheduled_for,
+    status,
+    content,
+    campaigns!inner (
+      image_url
+    ),
+    marketing_automations!inner (
+      status
+    )
+  `,
+)
+      .eq("status", "scheduled")
+      .eq(
+        "marketing_automations.status",
+        "active",
       )
-    `,
-  )
-  .eq("status", "scheduled")
-  .eq("marketing_automations.status", "active")
-  .lte("scheduled_for", now)
-  .order("scheduled_for", {
-    ascending: true,
-  })
-  .limit(50);
+      .lte("scheduled_for", now)
+      .order("scheduled_for", {
+        ascending: true,
+      })
+      .limit(50);
 
     if (taskError) {
       console.error(
@@ -137,8 +197,11 @@ export async function GET(request: Request) {
       (tasks as MarketingTask[] | null) ?? [];
 
     /*
-     * Return useful diagnostic information.
+     * ----------------------------------------------------
+     * 4. NO TASKS DUE
+     * ----------------------------------------------------
      */
+
     if (marketingTasks.length === 0) {
       console.log(
         "Marketing executor: no due tasks.",
@@ -176,67 +239,42 @@ export async function GET(request: Request) {
     let failed = 0;
 
     /*
-     * Process each due task.
+     * ----------------------------------------------------
+     * 5. PROCESS EACH TASK
+     * ----------------------------------------------------
      */
+
     for (const task of marketingTasks) {
       try {
         /*
-         * Validate channel.
+         * --------------------------------------------------
+         * VALIDATE CHANNEL
+         * --------------------------------------------------
          */
-        if (!isValidChannel(task.channel)) {
-          const { error } =
-            await supabase
-              .from("marketing_tasks")
-              .update({
-                status: "failed",
-                error_message:
-                  `Unsupported marketing channel: ${task.channel}`,
-                updated_at:
-                  new Date().toISOString(),
-              })
-              .eq("id", task.id)
-              .eq("status", "scheduled");
 
-          if (error) {
-            console.error(
-              "Failed to mark invalid-channel task:",
-              {
-                task_id: task.id,
-                error,
-              },
-            );
-          }
+        if (!isValidChannel(task.channel)) {
+          await markTaskFailed(
+            supabase,
+            task.id,
+            `Unsupported marketing channel: ${task.channel}`,
+          );
 
           failed += 1;
           continue;
         }
 
         /*
-         * Do not execute tasks with empty content.
+         * --------------------------------------------------
+         * VALIDATE CONTENT
+         * --------------------------------------------------
          */
-        if (!task.content?.trim()) {
-          const { error } =
-            await supabase
-              .from("marketing_tasks")
-              .update({
-                status: "failed",
-                error_message:
-                  "Marketing task has no content.",
-                updated_at:
-                  new Date().toISOString(),
-              })
-              .eq("id", task.id)
-              .eq("status", "scheduled");
 
-          if (error) {
-            console.error(
-              "Failed to mark empty-content task:",
-              {
-                task_id: task.id,
-                error,
-              },
-            );
-          }
+        if (!task.content?.trim()) {
+          await markTaskFailed(
+            supabase,
+            task.id,
+            "Marketing task has no content.",
+          );
 
           failed += 1;
           continue;
@@ -252,12 +290,12 @@ export async function GET(request: Request) {
           },
         );
 
-                /*
-         * Execute the actual marketing action.
-         *
-         * Facebook tasks must be successfully published
-         * before they can be marked as completed.
+        /*
+         * --------------------------------------------------
+         * FACEBOOK
+         * --------------------------------------------------
          */
+
         if (task.channel === "facebook") {
           const facebookResult =
             await publishFacebookPost(
@@ -266,29 +304,12 @@ export async function GET(request: Request) {
             );
 
           if (!facebookResult.success) {
-            const { error: failureUpdateError } =
-              await supabase
-                .from("marketing_tasks")
-                .update({
-                  status: "failed",
-                  error_message:
-                    facebookResult.error ??
-                    "Facebook publishing failed.",
-                  updated_at:
-                    new Date().toISOString(),
-                })
-                .eq("id", task.id)
-                .eq("status", "scheduled");
-
-            if (failureUpdateError) {
-              console.error(
-                "Failed to mark Facebook task as failed:",
-                {
-                  task_id: task.id,
-                  error: failureUpdateError,
-                },
-              );
-            }
+            await markTaskFailed(
+              supabase,
+              task.id,
+              facebookResult.error ??
+                "Facebook publishing failed.",
+            );
 
             console.error(
               "Facebook marketing task failed:",
@@ -303,34 +324,21 @@ export async function GET(request: Request) {
             continue;
           }
 
-          /*
-           * Facebook published successfully.
-           * Only now mark the task completed.
-           */
           const {
             data: updatedFacebookTask,
             error: facebookUpdateError,
-          } = await supabase
-            .from("marketing_tasks")
-            .update({
-              status: "completed",
-              executed_at:
-                new Date().toISOString(),
-              error_message: null,
-              updated_at:
-                new Date().toISOString(),
-            })
-            .eq("id", task.id)
-            .eq("status", "scheduled")
-            .select("id,status,executed_at")
-            .maybeSingle();
+          } = await markTaskCompleted(
+            supabase,
+            task.id,
+          );
 
           if (facebookUpdateError) {
             console.error(
               "Facebook task completion update failed:",
               {
                 task_id: task.id,
-                error: facebookUpdateError,
+                error:
+                  facebookUpdateError,
               },
             );
 
@@ -366,26 +374,359 @@ export async function GET(request: Request) {
         }
 
         /*
-         * Non-Facebook channels currently retain
+         * --------------------------------------------------
+         * LINKEDIN
+         * --------------------------------------------------
+         *
+         * Before publishing, check whether another
+         * completed LinkedIn task for the same campaign
+         * already contains exactly the same content.
+         *
+         * This prevents LinkedIn from receiving the same
+         * post twice.
+         */
+
+        if (task.channel === "linkedin") {
+          const {
+            data: duplicateTask,
+            error: duplicateLookupError,
+          } = await supabase
+            .from("marketing_tasks")
+            .select(
+              "id,status,executed_at",
+            )
+            .eq(
+              "owner_id",
+              task.owner_id,
+            )
+            .eq(
+              "campaign_id",
+              task.campaign_id,
+            )
+            .eq(
+              "channel",
+              "linkedin",
+            )
+            .eq(
+              "status",
+              "completed",
+            )
+            .eq(
+              "content",
+              task.content.trim(),
+            )
+            .neq(
+              "id",
+              task.id,
+            )
+            .order(
+              "executed_at",
+              {
+                ascending: false,
+              },
+            )
+            .limit(1)
+            .maybeSingle();
+
+          if (duplicateLookupError) {
+            console.error(
+              "LinkedIn duplicate lookup failed:",
+              {
+                task_id: task.id,
+                error:
+                  duplicateLookupError,
+              },
+            );
+
+            /*
+             * Do not silently skip the task if the
+             * duplicate check itself failed.
+             *
+             * Continue to the normal publishing flow.
+             */
+          }
+
+          if (duplicateTask) {
+            console.log(
+              "Duplicate LinkedIn task detected. No second post will be published.",
+              {
+                task_id: task.id,
+                existing_task_id:
+                  duplicateTask.id,
+                campaign_id:
+                  task.campaign_id,
+              },
+            );
+
+            /*
+             * Mark this task as skipped rather than
+             * completed because this particular task
+             * did not publish a new LinkedIn post.
+             *
+             * We keep the status as failed with a clear
+             * explanation because the existing schema
+             * does not currently have a "skipped" status.
+             */
+            const { error: duplicateUpdateError } =
+              await supabase
+                .from("marketing_tasks")
+                .update({
+                  status: "failed",
+                  error_message:
+                    "Duplicate LinkedIn content was already published by another task.",
+                  updated_at:
+                    new Date().toISOString(),
+                })
+                .eq(
+                  "id",
+                  task.id,
+                )
+                .eq(
+                  "status",
+                  "scheduled",
+                );
+
+            if (duplicateUpdateError) {
+              console.error(
+                "Failed to mark duplicate LinkedIn task:",
+                {
+                  task_id: task.id,
+                  error:
+                    duplicateUpdateError,
+                },
+              );
+
+              failed += 1;
+            } else {
+              skipped += 1;
+            }
+
+            continue;
+          }
+
+          /*
+           * No previous identical LinkedIn post was found.
+           *
+           * Publish normally.
+           */
+
+          const linkedInResult =
+            await publishLinkedInPost(
+              task.owner_id,
+              task.content,
+            );
+
+          if (!linkedInResult.success) {
+            await markTaskFailed(
+              supabase,
+              task.id,
+              linkedInResult.error ??
+                "LinkedIn publishing failed.",
+            );
+
+            console.error(
+              "LinkedIn marketing task failed:",
+              {
+                task_id: task.id,
+                error:
+                  linkedInResult.error,
+              },
+            );
+
+            failed += 1;
+            continue;
+          }
+
+          /*
+           * LinkedIn published successfully.
+           */
+
+          const {
+            data: updatedLinkedInTask,
+            error: linkedInUpdateError,
+          } = await markTaskCompleted(
+            supabase,
+            task.id,
+          );
+
+          if (linkedInUpdateError) {
+            console.error(
+              "LinkedIn task completion update failed:",
+              {
+                task_id: task.id,
+                error:
+                  linkedInUpdateError,
+              },
+            );
+
+            failed += 1;
+            continue;
+          }
+
+          if (!updatedLinkedInTask) {
+            console.error(
+              "LinkedIn task was not updated after successful publishing:",
+              {
+                task_id: task.id,
+                post_id:
+                  linkedInResult.post_id,
+              },
+            );
+
+            skipped += 1;
+            continue;
+          }
+
+          console.log(
+            "LinkedIn marketing task completed:",
+            {
+              task_id: task.id,
+              post_id:
+                linkedInResult.post_id,
+            },
+          );
+
+          processed += 1;
+          continue;
+        }
+		
+		/*
+ * --------------------------------------------------
+ * INSTAGRAM
+ * --------------------------------------------------
+ *
+ * Instagram requires an image URL.
+ * The image comes from campaigns.image_url.
+ */
+
+if (task.channel === "instagram") {
+  const imageUrl =
+    task.campaigns?.[0]?.image_url;
+
+  if (!imageUrl?.trim()) {
+    await markTaskFailed(
+      supabase,
+      task.id,
+      "Instagram task cannot be published because the campaign has no image URL.",
+    );
+
+    failed += 1;
+    continue;
+  }
+
+  if (!imageUrl?.trim()) {
+    await markTaskFailed(
+      supabase,
+      task.id,
+      "Instagram task cannot be published because the campaign has no image URL.",
+    );
+
+    failed += 1;
+    continue;
+  }
+
+  console.log(
+    "Publishing Instagram marketing task:",
+    {
+      task_id: task.id,
+      campaign_id: task.campaign_id,
+      image_url: imageUrl,
+    },
+  );
+
+  const instagramResult =
+    await publishInstagramPost(
+      task.owner_id,
+      task.content,
+      imageUrl,
+    );
+
+  if (!instagramResult.success) {
+    await markTaskFailed(
+      supabase,
+      task.id,
+      instagramResult.error ??
+        "Instagram publishing failed.",
+    );
+
+    console.error(
+      "Instagram marketing task failed:",
+      {
+        task_id: task.id,
+        error:
+          instagramResult.error,
+      },
+    );
+
+    failed += 1;
+    continue;
+  }
+
+  const {
+    data: updatedInstagramTask,
+    error: instagramUpdateError,
+  } = await markTaskCompleted(
+    supabase,
+    task.id,
+  );
+
+  if (instagramUpdateError) {
+    console.error(
+      "Instagram task completion update failed:",
+      {
+        task_id: task.id,
+        error:
+          instagramUpdateError,
+      },
+    );
+
+    failed += 1;
+    continue;
+  }
+
+  if (!updatedInstagramTask) {
+    console.error(
+      "Instagram task was not updated after successful publishing:",
+      {
+        task_id: task.id,
+        media_id:
+          instagramResult.media_id,
+      },
+    );
+
+    skipped += 1;
+    continue;
+  }
+
+  console.log(
+    "Instagram marketing task completed:",
+    {
+      task_id: task.id,
+      media_id:
+        instagramResult.media_id,
+    },
+  );
+
+  processed += 1;
+  continue;
+}
+
+        /*
+         * --------------------------------------------------
+         * OTHER CHANNELS
+         * --------------------------------------------------
+         *
+         * Instagram, email and follow_up currently retain
          * the existing completion behaviour.
          */
+
         const {
           data: updatedTask,
           error: updateError,
-        } = await supabase
-          .from("marketing_tasks")
-          .update({
-            status: "completed",
-            executed_at:
-              new Date().toISOString(),
-            error_message: null,
-            updated_at:
-              new Date().toISOString(),
-          })
-          .eq("id", task.id)
-          .eq("status", "scheduled")
-          .select("id,status,executed_at")
-          .maybeSingle();
+        } = await markTaskCompleted(
+          supabase,
+          task.id,
+        );
 
         if (updateError) {
           console.error(
@@ -400,10 +741,6 @@ export async function GET(request: Request) {
           continue;
         }
 
-        /*
-         * If no row was updated, something changed
-         * between SELECT and UPDATE.
-         */
         if (!updatedTask) {
           console.error(
             "Marketing task was not updated:",
@@ -428,34 +765,23 @@ export async function GET(request: Request) {
           taskError,
         );
 
-        const { error: failureUpdateError } =
-          await supabase
-            .from("marketing_tasks")
-            .update({
-              status: "failed",
-              error_message:
-                taskError instanceof Error
-                  ? taskError.message
-                  : "Unknown task execution error.",
-              updated_at:
-                new Date().toISOString(),
-            })
-            .eq("id", task.id);
-
-        if (failureUpdateError) {
-          console.error(
-            "Failed to mark task as failed:",
-            {
-              task_id: task.id,
-              error:
-                failureUpdateError,
-            },
-          );
-        }
+        await markTaskFailed(
+          supabase,
+          task.id,
+          taskError instanceof Error
+            ? taskError.message
+            : "Unknown task execution error.",
+        );
 
         failed += 1;
       }
     }
+
+    /*
+     * ----------------------------------------------------
+     * 6. EXECUTION SUMMARY
+     * ----------------------------------------------------
+     */
 
     return NextResponse.json({
       success: true,

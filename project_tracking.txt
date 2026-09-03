@@ -222,3 +222,18 @@ Publish
 Track result
 
 And importantly, we'll keep the same human approval principle you've already implemented for lead communication.
+
+
+One thing I would change
+
+I also wouldn't repeatedly post the exact same LinkedIn text every day. That's likely to become repetitive.
+
+A better system eventually would be:
+
+Monday — Problem/awareness post
+Tuesday — Adverio feature
+Wednesday — Small-business marketing tip
+Thursday — Use case
+Friday — AI/automation benefit
+Saturday — Short founder/product story
+Sunday — Soft call-to-action

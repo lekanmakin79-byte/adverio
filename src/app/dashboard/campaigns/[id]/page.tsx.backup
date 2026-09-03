@@ -1,7 +1,6 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import CreativeStudio from "./CreativeStudio";
 import CampaignActions from "./CampaignActions";
 
 type Campaign = {
@@ -17,7 +16,6 @@ type Campaign = {
   email_subject: string;
   email_body: string;
   follow_up_message: string;
-  image_url: string | null;
   status: "draft" | "active" | "paused" | "completed";
   created_at: string;
   updated_at: string;
@@ -170,22 +168,6 @@ export default async function CampaignDetailsPage({
           </div>
         </section>
 
-        {/* Creative Studio */}
-        <section className="mt-10">
-          <SectionHeading
-            eyebrow="Creative Studio"
-            title="Marketing creative"
-          />
-
-          <div className="mt-5">
-            <CreativeStudio
-              campaignId={typedCampaign.id}
-              campaignName={typedCampaign.campaign_name}
-              imageUrl={typedCampaign.image_url}
-            />
-          </div>
-        </section>
-
         {/* Email */}
         <section className="mt-10">
           <SectionHeading
@@ -225,12 +207,12 @@ export default async function CampaignDetailsPage({
         </section>
 
         {/* Campaign controls */}
-        <section className="mt-10">
-          <CampaignActions
-            campaignId={typedCampaign.id}
-            status={typedCampaign.status}
-          />
-        </section>
+<section className="mt-10">
+  <CampaignActions
+    campaignId={typedCampaign.id}
+    status={typedCampaign.status}
+  />
+</section>
 
         {/* Footer navigation */}
         <div className="mt-10 flex flex-col gap-3 sm:flex-row">
@@ -286,9 +268,7 @@ function InfoCard({
         {title}
       </p>
 
-      <p className="mt-3 text-sm leading-6 text-slate-700">
-        {content}
-      </p>
+      <p className="mt-3 text-sm leading-6 text-slate-700">{content}</p>
     </div>
   );
 }
