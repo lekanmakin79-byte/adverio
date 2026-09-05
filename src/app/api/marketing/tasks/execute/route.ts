@@ -481,10 +481,25 @@ export async function GET(request: Request) {
             continue;
           }
 
+          const linkedInImageUrl =
+            task.campaigns?.[0]?.image_url;
+
+          console.log(
+            "LinkedIn marketing creative:",
+            {
+              task_id: task.id,
+              campaign_id:
+                task.campaign_id,
+              image_url:
+                linkedInImageUrl ?? null,
+            },
+          );
+
           const linkedInResult =
             await publishLinkedInPost(
               task.owner_id,
               task.content,
+              linkedInImageUrl,
             );
 
           if (!linkedInResult.success) {
