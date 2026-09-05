@@ -30,6 +30,8 @@ const [message, setMessage] = useState("");
 const [error, setError] = useState("");
 const [linkedinConnected, setLinkedinConnected] =
 useState(false);
+const [facebookConnected, setFacebookConnected] =
+  useState(false);
 
 useEffect(() => {
   async function loadSettings() {
@@ -76,6 +78,35 @@ useEffect(() => {
       setLinkedinConnected(
         !!linkedinConnection,
       );
+	  
+	  /*
+ * --------------------------------------------------
+ * CHECK FACEBOOK CONNECTION
+ * --------------------------------------------------
+ *
+ * The database is the source of truth.
+ */
+
+const {
+  data: facebookConnection,
+  error: facebookError,
+} = await supabase
+  .from("social_connections")
+  .select("id")
+  .eq("owner_id", user.id)
+  .eq("platform", "facebook")
+  .maybeSingle();
+
+if (facebookError) {
+  console.error(
+    "Facebook connection lookup error:",
+    facebookError,
+  );
+}
+
+setFacebookConnected(
+  !!facebookConnection,
+);
 
       /*
        * --------------------------------------------------
@@ -89,6 +120,9 @@ useEffect(() => {
 
       const linkedinStatus =
         params.get("linkedin");
+		
+	  const facebookStatus =
+        params.get("facebook");
 
       if (linkedinStatus === "connected") {
         setLinkedinConnected(true);
@@ -148,6 +182,79 @@ useEffect(() => {
           "LinkedIn connection is not configured correctly.",
         );
       }
+	  
+	  /*
+ * --------------------------------------------------
+ * HANDLE FACEBOOK OAUTH RESULT
+ * --------------------------------------------------
+ */
+
+if (facebookStatus === "connected") {
+  setFacebookConnected(true);
+  setMessage(
+    "Facebook Page connected successfully.",
+  );
+
+  window.history.replaceState(
+    {},
+    "",
+    "/dashboard/settings",
+  );
+}
+
+if (facebookStatus === "error") {
+  setError(
+    "Unable to connect Facebook. Please try again.",
+  );
+}
+
+if (facebookStatus === "invalid_state") {
+  setError(
+    "Facebook connection expired. Please try again.",
+  );
+}
+
+if (facebookStatus === "token_error") {
+  setError(
+    "Facebook authorization could not be completed.",
+  );
+}
+
+if (facebookStatus === "pages_error") {
+  setError(
+    "Adverio could not retrieve your Facebook Pages.",
+  );
+}
+
+if (facebookStatus === "no_pages") {
+  setError(
+    "No Facebook Pages were found for your account.",
+  );
+}
+
+if (facebookStatus === "no_page_token") {
+  setError(
+    "Adverio could not obtain access to your Facebook Page.",
+  );
+}
+
+if (facebookStatus === "save_error") {
+  setError(
+    "Facebook was authorized, but the Page connection could not be saved.",
+  );
+}
+
+if (facebookStatus === "no_code") {
+  setError(
+    "Facebook authorization did not return a code.",
+  );
+}
+
+if (facebookStatus === "config_error") {
+  setError(
+    "Facebook connection is not configured correctly.",
+  );
+}
 
       /*
        * --------------------------------------------------
@@ -594,62 +701,129 @@ return ( <main className="min-h-screen bg-slate-50 text-slate-950"> <div classNa
     </form>
 
     {/* Social Connections */}
-    <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-lg font-bold text-slate-950">
-            Social connections
-          </h2>
+<section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+  <div>
+    <h2 className="text-lg font-bold text-slate-950">
+      Social connections
+    </h2>
 
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-            Connect your LinkedIn account so
-            Adverio can publish your marketing
-            content for you.
+    <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+      Connect your social accounts so Adverio
+      can publish your marketing content for you.
+    </p>
+  </div>
+
+  <div className="mt-6 grid gap-4 sm:grid-cols-2">
+    {/* LinkedIn */}
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h3 className="font-semibold text-slate-950">
+            LinkedIn
+          </h3>
+
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            Publish marketing content to LinkedIn.
           </p>
         </div>
 
-        <a
-          href="/api/auth/linkedin"
-          className="inline-flex shrink-0 items-center justify-center rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+        <span
+          className={`rounded-full px-3 py-1 text-xs font-semibold ${
+            linkedinConnected
+              ? "bg-emerald-100 text-emerald-700"
+              : "bg-slate-200 text-slate-600"
+          }`}
         >
           {linkedinConnected
-            ? "Reconnect LinkedIn"
-            : "Connect LinkedIn"}
-        </a>
+            ? "Connected"
+            : "Not connected"}
+        </span>
       </div>
 
-      {linkedinConnected && (
-        <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-700">
-          <strong>LinkedIn connected.</strong>{" "}
-          Adverio is ready to publish marketing
-          content to your LinkedIn account.
+      <a
+        href="/api/auth/linkedin"
+        className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+      >
+        {linkedinConnected
+          ? "Reconnect LinkedIn"
+          : "Connect LinkedIn"}
+      </a>
+    </div>
+
+    {/* Facebook */}
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h3 className="font-semibold text-slate-950">
+            Facebook Page
+          </h3>
+
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            Publish marketing content to your Facebook Page.
+          </p>
         </div>
-      )}
-    </section>
+
+        <span
+          className={`rounded-full px-3 py-1 text-xs font-semibold ${
+            facebookConnected
+              ? "bg-emerald-100 text-emerald-700"
+              : "bg-slate-200 text-slate-600"
+          }`}
+        >
+          {facebookConnected
+            ? "Connected"
+            : "Not connected"}
+        </span>
+      </div>
+
+      <a
+        href="/api/auth/facebook"
+        className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+      >
+        {facebookConnected
+          ? "Reconnect Facebook Page"
+          : "Connect Facebook Page"}
+      </a>
+    </div>
+  </div>
+
+  {linkedinConnected && (
+    <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-700">
+      <strong>LinkedIn connected.</strong>{" "}
+      Adverio is ready to publish marketing
+      content to your LinkedIn account.
+    </div>
+  )}
+
+  {facebookConnected && (
+    <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-6 text-emerald-700">
+      <strong>Facebook Page connected.</strong>{" "}
+      Adverio is ready to publish marketing
+      content to your Facebook Page.
+    </div>
+  )}
+</section>
 
     {/* Meta status */}
-    <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-      <div>
-        <h2 className="text-lg font-bold text-slate-950">
-          Facebook & Instagram
-        </h2>
+<section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+  <div>
+    <h2 className="text-lg font-bold text-slate-950">
+      Facebook & Instagram
+    </h2>
 
-        <p className="mt-1 text-sm leading-6 text-slate-500">
-          Facebook and Instagram publishing will
-          be available once Meta account
-          verification and API access are
-          configured.
-        </p>
-      </div>
+    <p className="mt-1 text-sm leading-6 text-slate-500">
+      Connect your Facebook Page to allow Adverio
+      to publish your marketing content automatically.
+      Instagram publishing can be connected separately.
+    </p>
+  </div>
 
-      <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-800">
-        Meta connection is not required for
-        LinkedIn publishing. You can continue
-        using Adverio's LinkedIn marketing
-        automation while Meta access is being
-        resolved.
-      </div>
-    </section>
+  <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-800">
+    Facebook Page publishing has been configured
+    for Adverio. Connect your Page above to enable
+    automated publishing.
+  </div>
+</section>
   </div>
 </main>
 
