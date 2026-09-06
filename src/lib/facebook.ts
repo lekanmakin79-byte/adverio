@@ -15,7 +15,9 @@ type FacebookPublishResult = {
 export async function publishFacebookPost(
   ownerId: string,
   message: string,
+  imageUrl?: string | null,
 ): Promise<FacebookPublishResult> {
+
   if (!ownerId) {
     return {
       success: false,
@@ -85,24 +87,65 @@ export async function publishFacebookPost(
     };
   }
 
-  /*
+    /*
    * Publish the post through the Facebook Graph API.
+   *
+   * When a campaign creative exists, publish it as a
+   * Facebook Page photo post so the generated campaign
+   * image is attached to the post.
+   *
+   * Otherwise, fall back to a normal text post.
    */
+  const hasImage =
+    typeof imageUrl === "string" &&
+    imageUrl.trim().length > 0;
+
+  const endpoint = hasImage
+    ? `https://graph.facebook.com/v23.0/${encodeURIComponent(
+        facebookConnection.platform_page_id,
+      )}/photos`
+    : `https://graph.facebook.com/v23.0/${encodeURIComponent(
+        facebookConnection.platform_page_id,
+      )}/feed`;
+
+ 
+  const publishBody: Record<string, string> =
+    hasImage
+      ? {
+          url: imageUrl.trim(),
+          caption: message.trim(),
+          access_token:
+            facebookConnection.access_token,
+        }
+      : {
+          message: message.trim(),
+          access_token:
+            facebookConnection.access_token,
+        };
+
+
+  console.log(
+    "Facebook marketing creative:",
+    {
+      page_id:
+        facebookConnection.platform_page_id,
+      has_image: hasImage,
+      image_url:
+        hasImage ? imageUrl : null,
+    },
+  );
+
   const response = await fetch(
-    `https://graph.facebook.com/v23.0/${encodeURIComponent(
-      facebookConnection.platform_page_id,
-    )}/feed`,
+    endpoint,
     {
       method: "POST",
       headers: {
         "Content-Type":
           "application/x-www-form-urlencoded",
       },
-      body: new URLSearchParams({
-        message: message.trim(),
-        access_token:
-          facebookConnection.access_token,
-      }).toString(),
+      body: new URLSearchParams(
+        publishBody,
+      ).toString(),
     },
   );
 

@@ -77,9 +77,51 @@ export default async function DashboardPage() {
     console.error("Dashboard business error:", businessError);
   }
 
-  if (!business) {
+    if (!business) {
     redirect("/onboarding");
   }
+
+  /*
+   * Load the current subscription.
+   *
+   * Normal users without an active Professional subscription
+   * remain on the Free plan.
+   *
+   * Professional access is currently available only to the
+   * administrator through Stripe test mode.
+   */
+  const { data: subscription, error: subscriptionError } =
+    await supabase
+      .from("subscriptions")
+      .select(
+        "plan, status, current_period_end",
+      )
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+  if (subscriptionError) {
+    console.error(
+      "Dashboard subscription error:",
+      subscriptionError,
+    );
+  }
+
+  const isProfessional =
+    subscription?.plan === "pro" &&
+    (
+      subscription.status === "active" ||
+      subscription.status === "trialing"
+    );
+
+  const currentPlan = isProfessional
+    ? "Professional"
+    : "Free";
+
+  const subscriptionStatus = isProfessional
+    ? subscription?.status === "trialing"
+      ? "Trial"
+      : "Active"
+    : "Free";
 
   /*
    * Load dashboard statistics from Supabase.
@@ -336,6 +378,74 @@ export default async function DashboardPage() {
                   </Link>
                 </div>
               </div>
+            </section>
+			
+			                       {/* Current plan */}
+            <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                    Subscription
+                  </p>
+
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    <h2 className="text-2xl font-bold text-slate-950">
+                      Current Plan: {currentPlan}
+                    </h2>
+
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                        isProfessional
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      {subscriptionStatus}
+                    </span>
+                  </div>
+
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    {isProfessional
+                      ? "Professional access is currently active in Stripe test mode."
+                      : "You are currently using the Adverio Free plan. Professional features are not currently available to Free users."}
+                  </p>
+
+                  {isProfessional &&
+                    subscription?.current_period_end && (
+                      <p className="mt-2 text-xs font-medium text-slate-500">
+                        Test subscription period ends:{" "}
+                        {new Date(
+                          subscription.current_period_end,
+                        ).toLocaleDateString("en-GB", {
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                        })}
+                      </p>
+                    )}
+                </div>
+
+                <div
+                  className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-xl font-bold ${
+                    isProfessional
+                      ? "bg-emerald-50 text-emerald-600"
+                      : "bg-slate-100 text-slate-500"
+                  }`}
+                >
+                  {isProfessional ? "P" : "F"}
+                </div>
+              </div>
+
+              {!isProfessional && (
+                <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <p className="text-xs leading-5 text-slate-600">
+                    Professional subscription access is currently
+                    restricted. When Professional plans are opened
+                    to customers, an upgrade option can be enabled
+                    here.
+                  </p>
+                </div>
+              )}
             </section>
 
             {/* Dynamic stats */}

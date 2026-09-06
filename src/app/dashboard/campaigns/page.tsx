@@ -19,7 +19,7 @@ export default async function CampaignsPage() {
 
   if (!user) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
+      <main id="top" className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
         <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
           <h1 className="text-xl font-bold text-slate-950">
             Please sign in
@@ -134,6 +134,14 @@ export default async function CampaignsPage() {
           )}
         </section>
       </div>
+	  
+	  <a
+  href="#top"
+  aria-label="Return to top"
+  className="fixed bottom-6 right-6 z-50 inline-flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+>
+  ↑ Top
+</a>
     </main>
   );
 }

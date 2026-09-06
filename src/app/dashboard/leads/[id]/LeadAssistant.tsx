@@ -40,6 +40,16 @@ created_at: string;
 updated_at: string;
 };
 
+type LeadIntelligence = {
+  lead_score: number;
+  priority: "Low" | "Medium" | "High";
+  qualification: string;
+  assessment: string;
+  recommended_action: string;
+  conversion_signals: string[];
+  potential_concerns: string[];
+};
+
 const statuses = [
 {
 value: "new",
@@ -110,6 +120,12 @@ const [message, setMessage] = useState("");
 
 const [error, setError] = useState("");
 
+const [intelligence, setIntelligence] =
+  useState<LeadIntelligence | null>(null);
+
+const [loadingIntelligence, setLoadingIntelligence] =
+  useState(false);
+
 // --------------------------------------------------
 // Generate AI response or follow-up
 // --------------------------------------------------
@@ -173,6 +189,63 @@ try {
 }
 
 
+}
+
+// --------------------------------------------------
+// Generate Professional AI Lead Intelligence
+// --------------------------------------------------
+
+async function generateIntelligence() {
+  setError("");
+  setMessage("");
+  setLoadingIntelligence(true);
+
+  try {
+    const result = await fetch(
+      "/api/ai/lead-response",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "intelligence",
+          lead,
+          campaign,
+        }),
+      },
+    );
+
+    const data = await result.json();
+
+    if (!result.ok) {
+      setError(
+        data.error ||
+          "Unable to generate AI lead intelligence.",
+      );
+      return;
+    }
+
+    if (!data.intelligence) {
+      setError(
+        "The AI returned an invalid lead intelligence result.",
+      );
+      return;
+    }
+
+    setIntelligence(data.intelligence);
+  } catch (err) {
+    console.error(
+      "AI lead intelligence error:",
+      err,
+    );
+
+    setError(
+      "Unable to connect to the AI service. Please try again.",
+    );
+  } finally {
+    setLoadingIntelligence(false);
+  }
 }
 
 // --------------------------------------------------
@@ -456,12 +529,13 @@ try {
 // --------------------------------------------------
 
 const actionsDisabled =
-loadingResponse ||
-loadingFollowUp ||
-savingResponse ||
-savingFollowUp ||
-updatingStatus ||
-convertingLead;
+  loadingResponse ||
+  loadingFollowUp ||
+  savingResponse ||
+  savingFollowUp ||
+  updatingStatus ||
+  convertingLead ||
+  loadingIntelligence;
 
 return ( <div className="space-y-6">
 {/* AI header */} <div className="rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-6 shadow-sm"> <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
@@ -560,6 +634,203 @@ return ( <div className="space-y-6">
       </div>
     )}
   </section>
+  
+  {/* Professional AI Lead Intelligence */}
+<section className="rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 via-white to-white p-6 shadow-sm">
+  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-xs font-bold uppercase tracking-wider text-violet-600">
+          ✦ Professional
+        </p>
+
+        <span className="rounded-full bg-violet-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-violet-700">
+          Advanced AI
+        </span>
+      </div>
+
+      <h3 className="mt-2 text-lg font-bold text-slate-950">
+        AI Lead Intelligence
+      </h3>
+
+      <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+        Analyse this enquiry to understand lead quality,
+        priority, conversion signals and the best next action.
+      </p>
+    </div>
+
+    <button
+      type="button"
+      onClick={generateIntelligence}
+      disabled={actionsDisabled}
+      className="w-full rounded-xl bg-violet-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+    >
+      {loadingIntelligence
+        ? "Analysing..."
+        : intelligence
+          ? "Re-analyse Lead"
+          : "✦ Analyse Lead"}
+    </button>
+  </div>
+
+  {intelligence && (
+    <div className="mt-6 space-y-5">
+      {/* Score and priority */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+            Lead score
+          </p>
+
+          <div className="mt-3 flex items-end gap-2">
+            <span className="text-4xl font-bold text-slate-950">
+              {intelligence.lead_score}
+            </span>
+
+            <span className="mb-1 text-sm text-slate-500">
+              / 100
+            </span>
+          </div>
+
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="h-full rounded-full bg-violet-600 transition-all"
+              style={{
+                width: `${Math.min(
+                  100,
+                  Math.max(
+                    0,
+                    intelligence.lead_score,
+                  ),
+                )}%`,
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-5">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+            Priority
+          </p>
+
+          <div className="mt-3">
+            <span
+              className={`inline-flex rounded-full px-3 py-1.5 text-sm font-bold ${
+                intelligence.priority === "High"
+                  ? "bg-red-100 text-red-700"
+                  : intelligence.priority === "Medium"
+                    ? "bg-amber-100 text-amber-700"
+                    : "bg-emerald-100 text-emerald-700"
+              }`}
+            >
+              {intelligence.priority}
+            </span>
+          </div>
+
+          <p className="mt-3 text-xs leading-5 text-slate-500">
+            Suggested priority based on the information
+            contained in the enquiry.
+          </p>
+        </div>
+      </div>
+
+      {/* Qualification */}
+      <div className="rounded-xl border border-slate-200 bg-white p-5">
+        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+          Qualification
+        </p>
+
+        <p className="mt-2 text-sm font-semibold text-slate-900">
+          {intelligence.qualification}
+        </p>
+      </div>
+
+      {/* Assessment */}
+      <div className="rounded-xl border border-slate-200 bg-white p-5">
+        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+          AI assessment
+        </p>
+
+        <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-7 text-slate-700">
+          {intelligence.assessment}
+        </p>
+      </div>
+
+      {/* Recommended action */}
+      <div className="rounded-xl border border-blue-200 bg-blue-50 p-5">
+        <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+          Recommended action
+        </p>
+
+        <p className="mt-2 text-sm font-semibold leading-6 text-blue-900">
+          {intelligence.recommended_action}
+        </p>
+      </div>
+
+      {/* Conversion signals */}
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
+        <p className="text-xs font-bold uppercase tracking-wider text-emerald-600">
+          Conversion signals
+        </p>
+
+        {intelligence.conversion_signals.length > 0 ? (
+          <ul className="mt-3 space-y-2">
+            {intelligence.conversion_signals.map(
+              (signal, index) => (
+                <li
+                  key={`${signal}-${index}`}
+                  className="flex gap-2 text-sm leading-6 text-emerald-800"
+                >
+                  <span className="font-bold">✓</span>
+                  <span>{signal}</span>
+                </li>
+              ),
+            )}
+          </ul>
+        ) : (
+          <p className="mt-2 text-sm leading-6 text-emerald-800">
+            No clear conversion signals were identified
+            from the available enquiry information.
+          </p>
+        )}
+      </div>
+
+      {/* Potential concerns */}
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-5">
+        <p className="text-xs font-bold uppercase tracking-wider text-amber-600">
+          Potential concerns
+        </p>
+
+        {intelligence.potential_concerns.length > 0 ? (
+          <ul className="mt-3 space-y-2">
+            {intelligence.potential_concerns.map(
+              (concern, index) => (
+                <li
+                  key={`${concern}-${index}`}
+                  className="flex gap-2 text-sm leading-6 text-amber-800"
+                >
+                  <span className="font-bold">!</span>
+                  <span>{concern}</span>
+                </li>
+              ),
+            )}
+          </ul>
+        ) : (
+          <p className="mt-2 text-sm leading-6 text-amber-800">
+            No specific concerns were identified from the
+            available enquiry information.
+          </p>
+        )}
+      </div>
+
+      <p className="text-xs leading-5 text-slate-400">
+        AI analysis is based only on the information available
+        for this lead. Review the assessment before making
+        business decisions or contacting the customer.
+      </p>
+    </div>
+  )}
+</section>
 
   {/* First response */}
   <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

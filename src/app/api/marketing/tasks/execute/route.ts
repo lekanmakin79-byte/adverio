@@ -297,11 +297,27 @@ export async function GET(request: Request) {
          */
 
         if (task.channel === "facebook") {
-          const facebookResult =
-            await publishFacebookPost(
-              task.owner_id,
-              task.content,
-            );
+          
+const facebookImageUrl =
+  task.campaigns?.[0]?.image_url;
+
+console.log(
+  "Facebook marketing creative:",
+  {
+    task_id: task.id,
+    campaign_id: task.campaign_id,
+    image_url:
+      facebookImageUrl ?? null,
+  },
+);
+
+const facebookResult =
+  await publishFacebookPost(
+    task.owner_id,
+    task.content,
+    facebookImageUrl,
+  );
+
 
           if (!facebookResult.success) {
             await markTaskFailed(

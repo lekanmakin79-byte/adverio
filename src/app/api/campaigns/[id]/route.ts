@@ -251,7 +251,7 @@ export async function PATCH(
             owner_id: user.id,
             campaign_id: id,
             status: "active",
-            frequency: "Daily",
+            frequency: "daily",
             start_date: new Date()
               .toISOString()
               .split("T")[0],

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import CreativeStudio from "./CreativeStudio";
 import CampaignActions from "./CampaignActions";
+import CopyEnquiryLink from "./CopyEnquiryLink";
 
 type Campaign = {
   id: string;
@@ -61,9 +62,16 @@ export default async function CampaignDetailsPage({
   }
 
   const typedCampaign = campaign as Campaign;
+  
+    const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "http://localhost:3000";
+
+  const publicEnquiryUrl =
+    `${siteUrl}/enquire/${typedCampaign.id}`;
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-950">
+    <main  id="top"  className="min-h-screen bg-slate-50 text-slate-950">
       <div className="mx-auto max-w-6xl px-6 py-10 lg:px-8">
         {/* Back navigation */}
         <Link
@@ -223,6 +231,46 @@ export default async function CampaignDetailsPage({
             </div>
           </div>
         </section>
+		
+		        {/* Public enquiry form */}
+        {typedCampaign.status === "active" && (
+          <section className="mt-10">
+            <SectionHeading
+              eyebrow="Customer enquiries"
+              title="Public enquiry form"
+            />
+
+            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
+              <p className="text-sm leading-6 text-slate-700">
+                Share this public enquiry form with customers so they can
+                contact your business directly through this campaign.
+              </p>
+
+              <div className="mt-4 rounded-xl border border-emerald-200 bg-white px-4 py-3">
+                <p className="break-all text-sm font-medium text-slate-700">
+                  {publicEnquiryUrl}
+                </p>
+              </div>
+
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+  <Link
+    href={`/enquire/${typedCampaign.id}`}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700"
+  >
+    Open Public Enquiry Form
+  </Link>
+
+  <CopyEnquiryLink url={publicEnquiryUrl} />
+</div>
+
+              <p className="mt-3 text-xs leading-5 text-slate-500">
+                Customers do not need an Adverio account to use this form.
+              </p>
+            </div>
+          </section>
+        )}
 
         {/* Campaign controls */}
         <section className="mt-10">
@@ -249,6 +297,14 @@ export default async function CampaignDetailsPage({
           </Link>
         </div>
       </div>
+	  
+	  <a
+  href="#top"
+  aria-label="Return to top"
+  className="fixed bottom-6 right-6 z-50 inline-flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+>
+  ↑ Top
+</a>
     </main>
   );
 }
