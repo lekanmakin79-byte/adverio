@@ -15,6 +15,7 @@ const GRAPH_API_VERSION = "v23.0";
 
 export async function publishInstagramPost(
   ownerId: string,
+   businessId: string,
   content: string,
   imageUrl: string,
 ): Promise<InstagramPublishResult> {
@@ -25,6 +26,13 @@ export async function publishInstagramPost(
         error: "Missing owner ID.",
       };
     }
+	
+	if (!businessId) {
+  return {
+    success: false,
+    error: "Missing business ID.",
+  };
+}
 
     if (!content?.trim()) {
       return {
@@ -57,6 +65,7 @@ export async function publishInstagramPost(
         "platform_user_id, access_token",
       )
       .eq("owner_id", ownerId)
+	  .eq("business_id", businessId)
       .eq("platform", "instagram")
       .maybeSingle();
 

@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 
 type Lead = {
   id: string;
@@ -43,12 +45,27 @@ export default async function LeadsPage() {
     );
   }
 
+  // --------------------------------------------------
+  // Resolve the currently selected business
+  // --------------------------------------------------
+
+  const business = await getCurrentBusiness();
+
+  if (!business) {
+    redirect("/onboarding");
+  }
+
+  // --------------------------------------------------
+  // Load leads for the selected business only
+  // --------------------------------------------------
+
   const { data: leads, error } = await supabase
     .from("leads")
     .select(
       "id, name, email, phone, message, source, status, follow_up_status, created_at",
     )
     .eq("owner_id", user.id)
+    .eq("business_id", business.id)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -88,7 +105,7 @@ export default async function LeadsPage() {
           <div className="mt-5 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-sm font-bold uppercase tracking-wider text-blue-600">
-                ♙ Adverio Leads
+                ♡ Adverio Leads
               </p>
 
               <h1 className="mt-2 text-3xl font-bold tracking-tight">
@@ -98,6 +115,13 @@ export default async function LeadsPage() {
               <p className="mt-3 max-w-2xl text-slate-600">
                 Manage enquiries and potential customers captured by your
                 marketing campaigns.
+              </p>
+
+              <p className="mt-2 text-sm font-semibold text-slate-500">
+                Business:{" "}
+                <span className="text-slate-800">
+                  {business.business_name}
+                </span>
               </p>
             </div>
           </div>
@@ -289,7 +313,7 @@ function EmptyState() {
   return (
     <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-2xl">
-        ♙
+        ♡
       </div>
 
       <h2 className="mt-5 text-xl font-bold text-slate-950">

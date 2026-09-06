@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentBusiness } from "@/lib/business";
 
 type PageProps = {
   params: Promise<{
@@ -11,6 +12,7 @@ type PageProps = {
 type Campaign = {
   id: string;
   owner_id: string;
+  business_id: string;
   campaign_name: string;
   key_message: string;
   call_to_action: string;
@@ -505,7 +507,7 @@ function createMarketingSvg(
     font-size="15"
     font-weight="600"
     fill="#94a3b8"
-  >Create • Promote • Automate</text>
+  >Create â€¢ Promote â€¢ Automate</text>
 
 </svg>
 `;
@@ -533,14 +535,30 @@ export async function POST(
       );
     }
 
+    // --------------------------------------------------
+    // Resolve selected business
+    // --------------------------------------------------
+
+    const business = await getCurrentBusiness();
+
+    if (!business) {
+      return NextResponse.json(
+        {
+          error: "No business found.",
+        },
+        { status: 404 },
+      );
+    }
+
     const { data: campaign, error } =
       await supabase
         .from("campaigns")
         .select(
-          "id, owner_id, campaign_name, key_message, call_to_action",
+          "id, owner_id, business_id, campaign_name, key_message, call_to_action",
         )
         .eq("id", id)
         .eq("owner_id", user.id)
+        .eq("business_id", business.id)
         .maybeSingle();
 
     if (error) {
@@ -650,6 +668,10 @@ export async function POST(
         .eq(
           "owner_id",
           user.id,
+        )
+        .eq(
+          "business_id",
+          business.id,
         );
 
     if (updateError) {

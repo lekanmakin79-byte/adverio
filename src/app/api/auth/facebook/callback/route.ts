@@ -9,13 +9,13 @@ export async function GET(request: NextRequest) {
     error: authError,
   } = await supabase.auth.getUser();
 
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "http://localhost:3000";
+
   if (authError || !user) {
     return NextResponse.redirect(
-      new URL(
-        "/login",
-        process.env.NEXT_PUBLIC_SITE_URL ||
-          "http://localhost:3000",
-      ),
+      new URL("/login", siteUrl),
     );
   }
 
@@ -26,10 +26,6 @@ export async function GET(request: NextRequest) {
   const error = searchParams.get("error");
   const errorDescription =
     searchParams.get("error_description");
-
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    "http://localhost:3000";
 
   const settingsUrl =
     `${siteUrl}/dashboard/settings`;
@@ -63,13 +59,61 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const oauthBusinessId =
+    request.cookies.get(
+      "facebook_oauth_business",
+    )?.value;
+
+  if (!oauthBusinessId) {
+    console.error(
+      "Facebook OAuth business context is missing.",
+    );
+
+    return NextResponse.redirect(
+      `${settingsUrl}?facebook=business_missing`,
+    );
+  }
+
+  const {
+    data: business,
+    error: businessError,
+  } = await supabase
+    .from("businesses")
+    .select("id")
+    .eq("id", oauthBusinessId)
+    .eq("owner_id", user.id)
+    .maybeSingle();
+
+  if (businessError) {
+    console.error(
+      "Facebook OAuth business lookup error:",
+      businessError,
+    );
+
+    return NextResponse.redirect(
+      `${settingsUrl}?facebook=business_error`,
+    );
+  }
+
+  if (!business) {
+    console.error(
+      "Facebook OAuth business not found or not owned by user.",
+    );
+
+    return NextResponse.redirect(
+      `${settingsUrl}?facebook=business_not_found`,
+    );
+  }
+
   if (!code) {
     return NextResponse.redirect(
       `${settingsUrl}?facebook=no_code`,
     );
   }
 
-  const appId = process.env.META_APP_ID;
+  const appId =
+    process.env.META_APP_ID;
+
   const appSecret =
     process.env.META_APP_SECRET;
 
@@ -203,6 +247,7 @@ export async function GET(request: NextRequest) {
         .upsert(
           {
             owner_id: user.id,
+            business_id: business.id,
             platform: "facebook",
             platform_user_id: user.id,
             platform_page_id: page.id,
@@ -214,7 +259,7 @@ export async function GET(request: NextRequest) {
           },
           {
             onConflict:
-              "owner_id,platform",
+              "owner_id,business_id,platform",
           },
         );
 
@@ -236,6 +281,10 @@ export async function GET(request: NextRequest) {
 
     response.cookies.delete(
       "facebook_oauth_state",
+    );
+
+    response.cookies.delete(
+      "facebook_oauth_business",
     );
 
     return response;

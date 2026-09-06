@@ -31,6 +31,17 @@ export const PROFESSIONAL_FEATURES: AdverioFeature[] = [
   "advanced_analytics",
 ];
 
+export const PLAN_LIMITS = {
+  free: {
+    businesses: 1,
+    campaigns: 3,
+  },
+  pro: {
+    businesses: 5,
+    campaigns: Infinity,
+  },
+} as const;
+
 export function hasFeatureAccess(
   plan: AdverioPlan,
   feature: AdverioFeature,

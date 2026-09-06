@@ -9,12 +9,13 @@ export async function GET(request: NextRequest) {
     error: authError,
   } = await supabase.auth.getUser();
 
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "http://localhost:3000";
+
   if (authError || !user) {
     return NextResponse.redirect(
-      new URL(
-        "/login",
-        process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
-      ),
+      new URL("/login", siteUrl),
     );
   }
 
@@ -23,7 +24,8 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code");
   const state = searchParams.get("state");
   const error = searchParams.get("error");
-  const errorDescription = searchParams.get("error_description");
+  const errorDescription =
+    searchParams.get("error_description");
 
   if (error) {
     console.error("LinkedIn OAuth error:", {
@@ -33,8 +35,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.redirect(
       new URL(
-        `/dashboard/settings?linkedin=error`,
-        process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+        "/dashboard/settings?linkedin=error",
+        siteUrl,
       ),
     );
   }
@@ -49,7 +51,59 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(
       new URL(
         "/dashboard/settings?linkedin=invalid_state",
-        process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+        siteUrl,
+      ),
+    );
+  }
+
+  const oauthBusinessId = request.cookies.get(
+    "linkedin_oauth_business",
+  )?.value;
+
+  if (!oauthBusinessId) {
+    console.error(
+      "LinkedIn OAuth business context is missing.",
+    );
+
+    return NextResponse.redirect(
+      new URL(
+        "/dashboard/settings?linkedin=business_missing",
+        siteUrl,
+      ),
+    );
+  }
+
+  const { data: business, error: businessError } =
+    await supabase
+      .from("businesses")
+      .select("id")
+      .eq("id", oauthBusinessId)
+      .eq("owner_id", user.id)
+      .maybeSingle();
+
+  if (businessError) {
+    console.error(
+      "LinkedIn OAuth business lookup error:",
+      businessError,
+    );
+
+    return NextResponse.redirect(
+      new URL(
+        "/dashboard/settings?linkedin=business_error",
+        siteUrl,
+      ),
+    );
+  }
+
+  if (!business) {
+    console.error(
+      "LinkedIn OAuth business not found or not owned by user.",
+    );
+
+    return NextResponse.redirect(
+      new URL(
+        "/dashboard/settings?linkedin=business_not_found",
+        siteUrl,
       ),
     );
   }
@@ -58,22 +112,29 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(
       new URL(
         "/dashboard/settings?linkedin=no_code",
-        process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+        siteUrl,
       ),
     );
   }
 
-  const clientId = process.env.LINKEDIN_CLIENT_ID;
-  const clientSecret = process.env.LINKEDIN_CLIENT_SECRET;
-  const redirectUri = process.env.LINKEDIN_REDIRECT_URI;
+  const clientId =
+    process.env.LINKEDIN_CLIENT_ID;
+
+  const clientSecret =
+    process.env.LINKEDIN_CLIENT_SECRET;
+
+  const redirectUri =
+    process.env.LINKEDIN_REDIRECT_URI;
 
   if (!clientId || !clientSecret || !redirectUri) {
-    console.error("LinkedIn OAuth environment variables are missing.");
+    console.error(
+      "LinkedIn OAuth environment variables are missing.",
+    );
 
     return NextResponse.redirect(
       new URL(
         "/dashboard/settings?linkedin=config_error",
-        process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+        siteUrl,
       ),
     );
   }
@@ -99,7 +160,10 @@ export async function GET(request: NextRequest) {
 
     const tokenData = await tokenResponse.json();
 
-    if (!tokenResponse.ok || !tokenData.access_token) {
+    if (
+      !tokenResponse.ok ||
+      !tokenData.access_token
+    ) {
       console.error(
         "LinkedIn token exchange error:",
         tokenData,
@@ -108,14 +172,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(
         new URL(
           "/dashboard/settings?linkedin=token_error",
-          process.env.NEXT_PUBLIC_SITE_URL ||
-            "http://localhost:3000",
+          siteUrl,
         ),
       );
     }
 
-    const accessToken = tokenData.access_token;
-    const expiresIn = tokenData.expires_in;
+    const accessToken =
+      tokenData.access_token;
+
+    const expiresIn =
+      tokenData.expires_in;
 
     const profileResponse = await fetch(
       "https://api.linkedin.com/v2/userinfo",
@@ -126,9 +192,13 @@ export async function GET(request: NextRequest) {
       },
     );
 
-    const profile = await profileResponse.json();
+    const profile =
+      await profileResponse.json();
 
-    if (!profileResponse.ok || !profile.sub) {
+    if (
+      !profileResponse.ok ||
+      !profile.sub
+    ) {
       console.error(
         "LinkedIn profile lookup error:",
         profile,
@@ -137,37 +207,41 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(
         new URL(
           "/dashboard/settings?linkedin=profile_error",
-          process.env.NEXT_PUBLIC_SITE_URL ||
-            "http://localhost:3000",
+          siteUrl,
         ),
       );
     }
 
     const expiresAt = expiresIn
       ? new Date(
-          Date.now() + expiresIn * 1000,
+          Date.now() +
+            expiresIn * 1000,
         ).toISOString()
       : null;
 
-    const { error: saveError } = await supabase
-      .from("social_connections")
-      .upsert(
-        {
-          owner_id: user.id,
-          platform: "linkedin",
-          platform_user_id: profile.sub,
-          platform_page_id: null,
-          platform_page_name:
-            profile.name ||
-            profile.given_name ||
-            "LinkedIn",
-          access_token: accessToken,
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: "owner_id,platform",
-        },
-      );
+    const { error: saveError } =
+      await supabase
+        .from("social_connections")
+        .upsert(
+          {
+            owner_id: user.id,
+            business_id: business.id,
+            platform: "linkedin",
+            platform_user_id: profile.sub,
+            platform_page_id: null,
+            platform_page_name:
+              profile.name ||
+              profile.given_name ||
+              "LinkedIn",
+            access_token: accessToken,
+            updated_at:
+              new Date().toISOString(),
+          },
+          {
+            onConflict:
+              "owner_id,business_id,platform",
+          },
+        );
 
     if (saveError) {
       console.error(
@@ -178,21 +252,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(
         new URL(
           "/dashboard/settings?linkedin=save_error",
-          process.env.NEXT_PUBLIC_SITE_URL ||
-            "http://localhost:3000",
+          siteUrl,
         ),
       );
     }
 
-    const response = NextResponse.redirect(
-      new URL(
-        "/dashboard/settings?linkedin=connected",
-        process.env.NEXT_PUBLIC_SITE_URL ||
-          "http://localhost:3000",
-      ),
+    const response =
+      NextResponse.redirect(
+        new URL(
+          "/dashboard/settings?linkedin=connected",
+          siteUrl,
+        ),
+      );
+
+    response.cookies.delete(
+      "linkedin_oauth_state",
     );
 
-    response.cookies.delete("linkedin_oauth_state");
+    response.cookies.delete(
+      "linkedin_oauth_business",
+    );
 
     return response;
   } catch (error) {
@@ -204,8 +283,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(
       new URL(
         "/dashboard/settings?linkedin=error",
-        process.env.NEXT_PUBLIC_SITE_URL ||
-          "http://localhost:3000",
+        siteUrl,
       ),
     );
   }

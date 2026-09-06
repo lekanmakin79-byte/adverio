@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 import Groq from "groq-sdk";
 
 const groq = new Groq({
@@ -54,6 +55,7 @@ type CampaignForTasks = {
 type AutomationForTasks = {
   id: string;
   owner_id: string;
+  business_id: string;
   campaign_id: string;
   status: AutomationStatus;
   frequency: Frequency;
@@ -72,12 +74,6 @@ type GeneratedDailyContent = {
  * --------------------------------------------------------
  * MARKETING ANGLES
  * --------------------------------------------------------
- *
- * These angles are deliberately fixed so that the AI must
- * approach the SAME campaign from a different perspective
- * on every scheduled occurrence.
- *
- * The campaign objective and business facts never change.
  */
 
 const MARKETING_ANGLES = [
@@ -131,15 +127,6 @@ function getAvailableChannels(
  * --------------------------------------------------------
  * GENERATE DAILY MARKETING CONTENT
  * --------------------------------------------------------
- *
- * IMPORTANT:
- *
- * The AI is NOT being asked to create 12 new campaigns.
- *
- * It is being asked to create 12 different marketing
- * executions of ONE campaign.
- *
- * Every day receives a predetermined angle.
  */
 
 async function generateDailyMarketingContent(
@@ -285,7 +272,6 @@ STRICT FACT-PRESERVATION RULES:
 44. Never use information that is not supported by the campaign information.
 
 45. The purpose of the daily variations is to give the business multiple ways to promote the SAME campaign over time, not to create different campaigns.
-
 
 46. Do not create unsupported comparisons such as "the best",
     "number one", "fastest", "cheapest", "most popular", or
@@ -458,8 +444,6 @@ Each variation must contain:
 - content
 `;
 
-
-
   /*
    * Send only the essential campaign information.
    *
@@ -617,10 +601,6 @@ ${campaignInformation}
     );
   }
 
-  /*
-   * Make sure the AI did not accidentally repeat
-   * the same marketing angle.
-   */
   const angleKeys = normalized.map(
     (item) =>
       item.angle
@@ -645,7 +625,6 @@ ${campaignInformation}
     occurrenceCount,
   );
 }
-
 
 /*
  * --------------------------------------------------------
@@ -728,15 +707,6 @@ function addFrequency(
  * --------------------------------------------------------
  * BUILD MARKETING AUTOMATION TASKS
  * --------------------------------------------------------
- *
- * Supported channels:
- *
- * facebook
- * instagram
- * linkedin
- * email
- *
- * follow_up is intentionally NOT used here.
  */
 
 function buildTasks(
@@ -746,6 +716,7 @@ function buildTasks(
 ) {
   const tasks: {
     owner_id: string;
+    business_id: string;
     automation_id: string;
     campaign_id: string;
     channel: string;
@@ -796,6 +767,9 @@ function buildTasks(
     tasks.push({
       owner_id:
         automation.owner_id,
+
+      business_id:
+        automation.business_id,
 
       automation_id:
         automation.id,
@@ -851,6 +825,19 @@ export async function GET() {
       );
     }
 
+    const business =
+      await getCurrentBusiness();
+
+    if (!business) {
+      return NextResponse.json(
+        {
+          error:
+            "No business is available. Please complete your business setup first.",
+        },
+        { status: 400 },
+      );
+    }
+
     const {
       data: automations,
       error,
@@ -860,6 +847,7 @@ export async function GET() {
         `
           id,
           owner_id,
+          business_id,
           campaign_id,
           status,
           frequency,
@@ -877,6 +865,10 @@ export async function GET() {
       .eq(
         "owner_id",
         user.id,
+      )
+      .eq(
+        "business_id",
+        business.id,
       )
       .order(
         "created_at",
@@ -925,9 +917,6 @@ export async function GET() {
  * --------------------------------------------------------
  * POST
  * --------------------------------------------------------
- *
- * Create automation and generate the first 12
- * marketing tasks.
  */
 
 export async function POST(
@@ -950,6 +939,19 @@ export async function POST(
             "You must be signed in.",
         },
         { status: 401 },
+      );
+    }
+
+    const business =
+      await getCurrentBusiness();
+
+    if (!business) {
+      return NextResponse.json(
+        {
+          error:
+            "No business is available. Please complete your business setup first.",
+        },
+        { status: 400 },
       );
     }
 
@@ -1090,11 +1092,6 @@ export async function POST(
       );
     }
 
-    /*
-     * Verify campaign ownership and retrieve
-     * all campaign facts required by the AI.
-     */
-
     const {
       data: campaign,
       error: campaignError,
@@ -1104,6 +1101,7 @@ export async function POST(
         `
           id,
           owner_id,
+          business_id,
           campaign_name,
           objective,
           target_audience,
@@ -1125,6 +1123,10 @@ export async function POST(
       .eq(
         "owner_id",
         user.id,
+      )
+      .eq(
+        "business_id",
+        business.id,
       )
       .maybeSingle();
 
@@ -1166,10 +1168,6 @@ export async function POST(
       );
     }
 
-    /*
-     * Only one automation per campaign.
-     */
-
     const {
       data: existingAutomation,
       error: existingError,
@@ -1187,6 +1185,10 @@ export async function POST(
       .eq(
         "owner_id",
         user.id,
+      )
+      .eq(
+        "business_id",
+        business.id,
       )
       .maybeSingle();
 
@@ -1217,10 +1219,6 @@ export async function POST(
       );
     }
 
-    /*
-     * Create automation.
-     */
-
     const {
       data: automation,
       error: automationError,
@@ -1231,6 +1229,9 @@ export async function POST(
       .insert({
         owner_id:
           user.id,
+
+        business_id:
+          business.id,
 
         campaign_id:
           campaignId,
@@ -1253,6 +1254,7 @@ export async function POST(
         `
           id,
           owner_id,
+          business_id,
           campaign_id,
           status,
           frequency,
@@ -1287,6 +1289,8 @@ export async function POST(
       id: automation.id,
       owner_id:
         automation.owner_id,
+      business_id:
+        automation.business_id,
       campaign_id:
         automation.campaign_id,
       status:
@@ -1347,6 +1351,10 @@ export async function POST(
         .eq(
           "owner_id",
           user.id,
+        )
+        .eq(
+          "business_id",
+          business.id,
         );
 
       return NextResponse.json(
@@ -1357,10 +1365,6 @@ export async function POST(
         { status: 400 },
       );
     }
-
-    /*
-     * Generate the 12 unique daily angles.
-     */
 
     let dailyContent:
       GeneratedDailyContent[];
@@ -1390,6 +1394,10 @@ export async function POST(
         .eq(
           "owner_id",
           user.id,
+        )
+        .eq(
+          "business_id",
+          business.id,
         );
 
       return NextResponse.json(
@@ -1437,6 +1445,10 @@ export async function POST(
           .eq(
             "owner_id",
             user.id,
+          )
+          .eq(
+            "business_id",
+            business.id,
           );
 
         return NextResponse.json(
@@ -1478,9 +1490,6 @@ export async function POST(
  * --------------------------------------------------------
  * PATCH
  * --------------------------------------------------------
- *
- * Update an automation and rebuild its scheduled tasks
- * when scheduling settings change.
  */
 
 export async function PATCH(
@@ -1503,6 +1512,19 @@ export async function PATCH(
             "You must be signed in.",
         },
         { status: 401 },
+      );
+    }
+
+    const business =
+      await getCurrentBusiness();
+
+    if (!business) {
+      return NextResponse.json(
+        {
+          error:
+            "No business is available. Please complete your business setup first.",
+        },
+        { status: 400 },
       );
     }
 
@@ -1548,6 +1570,7 @@ export async function PATCH(
         `
           id,
           owner_id,
+          business_id,
           campaign_id,
           status,
           frequency,
@@ -1562,6 +1585,10 @@ export async function PATCH(
       .eq(
         "owner_id",
         user.id,
+      )
+      .eq(
+        "business_id",
+        business.id,
       )
       .maybeSingle();
 
@@ -1744,10 +1771,15 @@ export async function PATCH(
         "owner_id",
         user.id,
       )
+      .eq(
+        "business_id",
+        business.id,
+      )
       .select(
         `
           id,
           owner_id,
+          business_id,
           campaign_id,
           status,
           frequency,
@@ -1777,10 +1809,6 @@ export async function PATCH(
       );
     }
 
-    /*
-     * Rebuild scheduled tasks when the schedule changes
-     * or the automation is resumed.
-     */
     const shouldRebuildTasks =
       body.status === "active" ||
       body.frequency !==
@@ -1793,11 +1821,6 @@ export async function PATCH(
     if (
       shouldRebuildTasks
     ) {
-      /*
-       * Delete only scheduled tasks.
-       *
-       * Completed and failed tasks remain preserved.
-       */
       const {
         error:
           taskDeleteError,
@@ -1815,6 +1838,10 @@ export async function PATCH(
           user.id,
         )
         .eq(
+          "business_id",
+          business.id,
+        )
+        .eq(
           "status",
           "scheduled",
         );
@@ -1826,14 +1853,6 @@ export async function PATCH(
         );
       }
 
-      /*
-       * Retrieve the COMPLETE campaign.
-       *
-       * This is important because the AI needs the original
-       * campaign objective, target audience, key message and
-       * business facts when rebuilding tasks.
-       */
-
       const {
         data: campaign,
         error: campaignError,
@@ -1844,6 +1863,8 @@ export async function PATCH(
         .select(
           `
             id,
+            owner_id,
+            business_id,
             campaign_name,
             objective,
             target_audience,
@@ -1864,6 +1885,10 @@ export async function PATCH(
         .eq(
           "owner_id",
           user.id,
+        )
+        .eq(
+          "business_id",
+          business.id,
         )
         .maybeSingle();
 
@@ -1892,10 +1917,6 @@ export async function PATCH(
         });
       }
 
-      /*
-       * If the automation is paused, there is nothing
-       * else to schedule.
-       */
       if (
         updatedAutomation.status ===
         "paused"
@@ -1915,6 +1936,9 @@ export async function PATCH(
 
         owner_id:
           updatedAutomation.owner_id,
+
+        business_id:
+          updatedAutomation.business_id,
 
         campaign_id:
           updatedAutomation.campaign_id,
@@ -2085,8 +2109,6 @@ export async function PATCH(
  * --------------------------------------------------------
  * DELETE
  * --------------------------------------------------------
- *
- * Delete an automation and all of its tasks.
  */
 
 export async function DELETE(
@@ -2109,6 +2131,19 @@ export async function DELETE(
             "You must be signed in.",
         },
         { status: 401 },
+      );
+    }
+
+    const business =
+      await getCurrentBusiness();
+
+    if (!business) {
+      return NextResponse.json(
+        {
+          error:
+            "No business is available. Please complete your business setup first.",
+        },
+        { status: 400 },
       );
     }
 
@@ -2141,7 +2176,7 @@ export async function DELETE(
         "marketing_automations",
       )
       .select(
-        "id, owner_id",
+        "id, owner_id, business_id",
       )
       .eq(
         "id",
@@ -2150,6 +2185,10 @@ export async function DELETE(
       .eq(
         "owner_id",
         user.id,
+      )
+      .eq(
+        "business_id",
+        business.id,
       )
       .maybeSingle();
 
@@ -2178,9 +2217,6 @@ export async function DELETE(
       );
     }
 
-    /*
-     * Delete tasks first.
-     */
     const {
       error:
         taskDeleteError,
@@ -2196,6 +2232,10 @@ export async function DELETE(
       .eq(
         "owner_id",
         user.id,
+      )
+      .eq(
+        "business_id",
+        business.id,
       );
 
     if (taskDeleteError) {
@@ -2213,9 +2253,6 @@ export async function DELETE(
       );
     }
 
-    /*
-     * Delete the automation.
-     */
     const {
       error:
         automationDeleteError,
@@ -2231,6 +2268,10 @@ export async function DELETE(
       .eq(
         "owner_id",
         user.id,
+      )
+      .eq(
+        "business_id",
+        business.id,
       );
 
     if (

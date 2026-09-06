@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 import MarketingAutomationControls from "@/components/MarketingAutomationControls";
 
 type AutomationStatus =
@@ -10,6 +12,7 @@ type AutomationStatus =
 type Automation = {
   id: string;
   campaign_id: string;
+  business_id: string;
   status: AutomationStatus;
   frequency: string;
   start_date: string;
@@ -60,6 +63,20 @@ export default async function MarketingAutomationPage() {
     );
   }
 
+  // --------------------------------------------------
+  // Resolve the currently selected business
+  // --------------------------------------------------
+
+  const business = await getCurrentBusiness();
+
+  if (!business) {
+    redirect("/onboarding");
+  }
+
+  // --------------------------------------------------
+  // Load marketing data for the selected business only
+  // --------------------------------------------------
+
   const [
     { data: automationData, error: automationError },
     { data: campaignData, error: campaignError },
@@ -70,6 +87,7 @@ export default async function MarketingAutomationPage() {
         `
           id,
           campaign_id,
+          business_id,
           status,
           frequency,
           start_date,
@@ -83,6 +101,7 @@ export default async function MarketingAutomationPage() {
         `,
       )
       .eq("owner_id", user.id)
+      .eq("business_id", business.id)
       .order("created_at", {
         ascending: false,
       }),
@@ -97,6 +116,7 @@ export default async function MarketingAutomationPage() {
         `,
       )
       .eq("owner_id", user.id)
+      .eq("business_id", business.id)
       .order("created_at", {
         ascending: false,
       }),
@@ -162,6 +182,13 @@ export default async function MarketingAutomationPage() {
               <p className="mt-3 max-w-2xl text-slate-600">
                 Schedule and manage marketing content generated from
                 your AI campaigns.
+              </p>
+
+              <p className="mt-2 text-sm font-semibold text-slate-500">
+                Business:{" "}
+                <span className="text-slate-800">
+                  {business.business_name}
+                </span>
               </p>
             </div>
           </div>

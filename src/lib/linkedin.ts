@@ -264,6 +264,7 @@ async function uploadCreativeToLinkedIn(
 
 export async function publishLinkedInPost(
   ownerId: string,
+   businessId: string,
   message: string,
   imageUrl?: string | null,
 ): Promise<LinkedInPublishResult> {
@@ -274,6 +275,13 @@ export async function publishLinkedInPost(
         error: "Missing owner ID.",
       };
     }
+	
+	if (!businessId) {
+  return {
+    success: false,
+    error: "Missing business ID.",
+  };
+}
 
     if (!message?.trim()) {
       return {
@@ -299,6 +307,7 @@ export async function publishLinkedInPost(
         "platform_user_id, platform_page_name, access_token",
       )
       .eq("owner_id", ownerId)
+	  .eq("business_id", businessId)
       .eq("platform", "linkedin")
       .maybeSingle();
 

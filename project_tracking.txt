@@ -237,3 +237,24 @@ Thursday — Use case
 Friday — AI/automation benefit
 Saturday — Short founder/product story
 Sunday — Soft call-to-action
+
+
+Then we can support:
+
+Free
+
+1 business
+3 campaigns
+
+Professional
+
+Up to 5 businesses
+Unlimited campaigns
+
+And importantly, a Professional user could have something like:
+
+Business 1: Test Electrical Services
+Business 2: GreenBean Café
+Business 3: BlueStone Realty
+
+Each business would have its own campaigns, marketing content, leads, customers, automations and social connections, while the same Adverio account manages all of them.

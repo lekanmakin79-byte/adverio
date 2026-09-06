@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 
 type Customer = {
   id: string;
@@ -23,6 +24,14 @@ export default async function CustomersPage() {
     redirect("/login");
   }
 
+  // Resolve the currently selected business.
+  const business = await getCurrentBusiness();
+
+  if (!business) {
+    redirect("/onboarding");
+  }
+
+  // Load customers for the selected business only.
   const { data: customers, error } = await supabase
     .from("customers")
     .select(
@@ -37,6 +46,7 @@ export default async function CustomersPage() {
       `,
     )
     .eq("owner_id", user.id)
+    .eq("business_id", business.id)
     .order("created_at", {
       ascending: false,
     });
@@ -61,7 +71,7 @@ export default async function CustomersPage() {
         {/* Header */}
         <div className="mt-6">
           <p className="text-sm font-bold uppercase tracking-wider text-blue-600">
-            ♙ Adverio Customers
+            ♡ Adverio Customers
           </p>
 
           <h1 className="mt-2 text-3xl font-bold tracking-tight">
@@ -71,6 +81,13 @@ export default async function CustomersPage() {
           <p className="mt-3 max-w-2xl text-slate-600">
             Manage customers who have been converted from your
             marketing leads.
+          </p>
+
+          <p className="mt-2 text-sm font-semibold text-slate-500">
+            Business:{" "}
+            <span className="text-slate-800">
+              {business.business_name}
+            </span>
           </p>
         </div>
 
@@ -104,7 +121,7 @@ export default async function CustomersPage() {
           {customerList.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-2xl">
-                ♙
+                ♡
               </div>
 
               <h2 className="mt-5 text-xl font-bold text-slate-950">

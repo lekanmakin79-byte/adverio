@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness, getUserBusinesses } from "@/lib/business";
 import DashboardMobileMenu from "@/components/DashboardMobileMenu";
 import BackToTop from "@/components/BackToTop";
+import BusinessSwitcher from "@/components/BusinessSwitcher";
 
 const navigation = [
   {
@@ -67,19 +69,13 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const { data: business, error: businessError } = await supabase
-    .from("businesses")
-    .select("*")
-    .eq("owner_id", user.id)
-    .maybeSingle();
+  const business = await getCurrentBusiness();
 
-  if (businessError) {
-    console.error("Dashboard business error:", businessError);
-  }
+if (!business) {
+  redirect("/onboarding");
+}
 
-    if (!business) {
-    redirect("/onboarding");
-  }
+const businesses = await getUserBusinesses();
 
   /*
    * Load the current subscription.
@@ -139,19 +135,22 @@ export default async function DashboardPage() {
       .from("campaigns")
       .select("id", { count: "exact", head: true })
       .eq("owner_id", user.id)
-      .eq("status", "active"),
+.eq("business_id", business.id)
+.eq("status", "active"),
 
     supabase
       .from("leads")
       .select("id", { count: "exact", head: true })
       .eq("owner_id", user.id)
-      .eq("status", "new"),
+.eq("business_id", business.id)
+.eq("status", "new"),
 
     supabase
       .from("follow_ups")
       .select("id", { count: "exact", head: true })
       .eq("owner_id", user.id)
-      .eq("status", "pending"),
+.eq("business_id", business.id)
+.eq("status", "pending"),
 
     supabase
       .from("campaigns")
@@ -168,7 +167,8 @@ export default async function DashboardPage() {
           follow_up_message
         `,
       )
-      .eq("owner_id", user.id),
+      .eq("owner_id", user.id)
+.eq("business_id", business.id),
   ]);
 
   if (activeCampaignsError) {
@@ -256,6 +256,14 @@ export default async function DashboardPage() {
             </div>
 
             <nav className="flex-1 space-y-1 px-4 py-6">
+			
+			<BusinessSwitcher
+  businesses={businesses}
+  currentBusinessId={business.id}
+/>
+
+<div className="mb-6" />
+			
               <p className="mb-3 px-3 text-xs font-bold uppercase tracking-wider text-slate-400">
                 Workspace
               </p>
@@ -316,7 +324,10 @@ export default async function DashboardPage() {
           <header className="border-b border-slate-200 bg-white">
             <div className="flex h-20 items-center justify-between px-6 lg:px-8">
               <div className="flex items-center gap-3">
-                <DashboardMobileMenu />
+                <DashboardMobileMenu
+  businesses={businesses}
+  currentBusinessId={business.id}
+/>
 
                 <div>
                   <p className="text-sm text-slate-500 lg:hidden">

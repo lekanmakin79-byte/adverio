@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 
 type RouteContext = {
   params: Promise<{
@@ -56,7 +57,23 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 2. Get follow-up ID
+    // 2. Resolve the currently selected business
+    // --------------------------------------------------
+
+    const business = await getCurrentBusiness();
+
+    if (!business) {
+      return NextResponse.json(
+        {
+          error:
+            "No business is available. Please complete your business setup first.",
+        },
+        { status: 400 },
+      );
+    }
+
+    // --------------------------------------------------
+    // 3. Get follow-up ID
     // --------------------------------------------------
 
     const { id } = await context.params;
@@ -71,7 +88,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 3. Parse request body
+    // 4. Parse request body
     // --------------------------------------------------
 
     let body: UpdateBody;
@@ -88,7 +105,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 4. Validate requested status
+    // 5. Validate requested status
     // --------------------------------------------------
 
     if (!isValidStatus(body.status)) {
@@ -103,7 +120,8 @@ export async function PATCH(
     const newStatus = body.status;
 
     // --------------------------------------------------
-    // 5. Find the follow-up belonging to this user
+    // 6. Find the follow-up belonging to this user and
+    //    selected business
     // --------------------------------------------------
 
     const {
@@ -115,12 +133,14 @@ export async function PATCH(
         `
           id,
           owner_id,
+          business_id,
           lead_id,
           status
         `,
       )
       .eq("id", id)
       .eq("owner_id", user.id)
+      .eq("business_id", business.id)
       .maybeSingle();
 
     if (lookupError) {
@@ -148,7 +168,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 6. Prevent unnecessary status updates
+    // 7. Prevent unnecessary status updates
     // --------------------------------------------------
 
     if (existingFollowUp.status === newStatus) {
@@ -160,7 +180,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 7. Build update
+    // 8. Build update
     // --------------------------------------------------
 
     const updateData: {
@@ -178,7 +198,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 8. Update follow-up
+    // 9. Update follow-up
     // --------------------------------------------------
 
     const {
@@ -189,10 +209,12 @@ export async function PATCH(
       .update(updateData)
       .eq("id", id)
       .eq("owner_id", user.id)
+      .eq("business_id", business.id)
       .select(
         `
           id,
           owner_id,
+          business_id,
           lead_id,
           message,
           status,
@@ -218,65 +240,64 @@ export async function PATCH(
       );
     }
 
-    
-// --------------------------------------------------
-// 9. Keep lead follow-up status synchronised
-// --------------------------------------------------
-//
-// follow_ups.status and leads.follow_up_status do not
-// have identical allowed values.
-//
-// follow_ups.status:
-//   pending
-//   completed
-//   cancelled
-//
-// leads.follow_up_status:
-//   pending
-//   scheduled
-//   sent
-//   completed
-//
-// Therefore "cancelled" must NOT be copied directly
-// into leads.follow_up_status.
-//
-// A cancelled follow-up means there is currently no
-// active follow-up task, so the lead returns to
-// "pending".
+    // --------------------------------------------------
+    // 10. Keep lead follow-up status synchronised
+    // --------------------------------------------------
+    //
+    // follow_ups.status and leads.follow_up_status do not
+    // have identical allowed values.
+    //
+    // follow_ups.status:
+    //   pending
+    //   completed
+    //   cancelled
+    //
+    // leads.follow_up_status:
+    //   pending
+    //   scheduled
+    //   sent
+    //   completed
+    //
+    // Therefore "cancelled" must NOT be copied directly
+    // into leads.follow_up_status.
+    //
+    // A cancelled follow-up means there is currently no
+    // active follow-up task, so the lead returns to
+    // "pending".
 
-const leadFollowUpStatus =
-  newStatus === "completed"
-    ? "completed"
-    : "pending";
+    const leadFollowUpStatus =
+      newStatus === "completed"
+        ? "completed"
+        : "pending";
 
-const { error: leadUpdateError } =
-  await supabase
-    .from("leads")
-    .update({
-      follow_up_status: leadFollowUpStatus,
-    })
-    .eq("id", existingFollowUp.lead_id)
-    .eq("owner_id", user.id);
+    const { error: leadUpdateError } =
+      await supabase
+        .from("leads")
+        .update({
+          follow_up_status: leadFollowUpStatus,
+        })
+        .eq("id", existingFollowUp.lead_id)
+        .eq("owner_id", user.id)
+        .eq("business_id", business.id);
 
-if (leadUpdateError) {
-  console.error(
-    "Lead follow-up status update error:",
-    leadUpdateError,
-  );
+    if (leadUpdateError) {
+      console.error(
+        "Lead follow-up status update error:",
+        leadUpdateError,
+      );
 
-  return NextResponse.json(
-    {
-      error:
-        "Follow-up was updated, but the lead follow-up status could not be synchronised.",
-      followUp: updatedFollowUp,
-    },
-    { status: 500 },
-  );
-}
-
+      return NextResponse.json(
+        {
+          error:
+            "Follow-up was updated, but the lead follow-up status could not be synchronised.",
+          followUp: updatedFollowUp,
+        },
+        { status: 500 },
+      );
+    }
 
     // --------------------------------------------------
-    // 10. Return successful response
+    // 11. Return successful response
     // --------------------------------------------------
 
     return NextResponse.json({

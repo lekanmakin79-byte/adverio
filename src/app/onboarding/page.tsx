@@ -28,6 +28,7 @@ export default function OnboardingPage() {
   const router = useRouter();
   const supabase = createClient();
 
+  const [businessId, setBusinessId] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState("");
   const [industry, setIndustry] = useState("");
   const [services, setServices] = useState("");
@@ -51,10 +52,17 @@ export default function OnboardingPage() {
         return;
       }
 
-      const { data, error: businessError } = await supabase
+      const {
+        data,
+        error: businessError,
+      } = await supabase
         .from("businesses")
         .select("*")
         .eq("owner_id", user.id)
+        .order("created_at", {
+          ascending: true,
+        })
+        .limit(1)
         .maybeSingle();
 
       if (businessError) {
@@ -64,6 +72,7 @@ export default function OnboardingPage() {
       }
 
       if (data) {
+        setBusinessId(data.id);
         setBusinessName(data.business_name ?? "");
         setIndustry(data.industry ?? "");
         setServices(data.services ?? "");
@@ -106,11 +115,41 @@ export default function OnboardingPage() {
       updated_at: new Date().toISOString(),
     };
 
-    const { error: saveError } = await supabase
-      .from("businesses")
-      .upsert(businessData, {
-        onConflict: "owner_id",
-      });
+    let saveError: { message: string } | null = null;
+
+    if (businessId) {
+      const { error } = await supabase
+        .from("businesses")
+        .update({
+          business_name: businessData.business_name,
+          industry: businessData.industry,
+          services: businessData.services,
+          target_customers: businessData.target_customers,
+          location: businessData.location,
+          website: businessData.website,
+          marketing_goal: businessData.marketing_goal,
+          updated_at: businessData.updated_at,
+        })
+        .eq("id", businessId)
+        .eq("owner_id", user.id);
+
+      saveError = error;
+    } else {
+      const {
+        data: newBusiness,
+        error,
+      } = await supabase
+        .from("businesses")
+        .insert(businessData)
+        .select("id")
+        .single();
+
+      if (!error && newBusiness) {
+        setBusinessId(newBusiness.id);
+      }
+
+      saveError = error;
+    }
 
     if (saveError) {
       setError(saveError.message);
@@ -125,7 +164,9 @@ export default function OnboardingPage() {
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-50">
-        <p className="text-slate-600">Loading your business profile...</p>
+        <p className="text-slate-600">
+          Loading your business profile...
+        </p>
       </main>
     );
   }
@@ -163,7 +204,9 @@ export default function OnboardingPage() {
                 type="text"
                 required
                 value={businessName}
-                onChange={(event) => setBusinessName(event.target.value)}
+                onChange={(event) =>
+                  setBusinessName(event.target.value)
+                }
                 placeholder="e.g. ABC Electrical Services"
                 className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
               />
@@ -181,10 +224,14 @@ export default function OnboardingPage() {
                 id="industry"
                 required
                 value={industry}
-                onChange={(event) => setIndustry(event.target.value)}
+                onChange={(event) =>
+                  setIndustry(event.target.value)
+                }
                 className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
               >
-                <option value="">Select your industry</option>
+                <option value="">
+                  Select your industry
+                </option>
 
                 {industries.map((item) => (
                   <option key={item} value={item}>
@@ -207,7 +254,9 @@ export default function OnboardingPage() {
                 required
                 rows={4}
                 value={services}
-                onChange={(event) => setServices(event.target.value)}
+                onChange={(event) =>
+                  setServices(event.target.value)
+                }
                 placeholder="Describe the main services you offer..."
                 className="w-full resize-none rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
               />
@@ -226,7 +275,9 @@ export default function OnboardingPage() {
                 required
                 rows={3}
                 value={targetCustomers}
-                onChange={(event) => setTargetCustomers(event.target.value)}
+                onChange={(event) =>
+                  setTargetCustomers(event.target.value)
+                }
                 placeholder="e.g. Homeowners and small businesses in my local area"
                 className="w-full resize-none rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
               />
@@ -245,7 +296,9 @@ export default function OnboardingPage() {
                 type="text"
                 required
                 value={location}
-                onChange={(event) => setLocation(event.target.value)}
+                onChange={(event) =>
+                  setLocation(event.target.value)
+                }
                 placeholder="e.g. Manchester, UK"
                 className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
               />
@@ -266,7 +319,9 @@ export default function OnboardingPage() {
                 id="website"
                 type="url"
                 value={website}
-                onChange={(event) => setWebsite(event.target.value)}
+                onChange={(event) =>
+                  setWebsite(event.target.value)
+                }
                 placeholder="https://yourbusiness.com"
                 className="w-full rounded-lg border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
               />
@@ -284,10 +339,14 @@ export default function OnboardingPage() {
                 id="marketingGoal"
                 required
                 value={marketingGoal}
-                onChange={(event) => setMarketingGoal(event.target.value)}
+                onChange={(event) =>
+                  setMarketingGoal(event.target.value)
+                }
                 className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
               >
-                <option value="">Select your main goal</option>
+                <option value="">
+                  Select your main goal
+                </option>
 
                 {marketingGoals.map((goal) => (
                   <option key={goal} value={goal}>
@@ -311,7 +370,9 @@ export default function OnboardingPage() {
               disabled={saving}
               className="w-full rounded-lg bg-blue-600 px-5 py-3.5 font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {saving ? "Saving..." : "Save and continue"}
+              {saving
+                ? "Saving..."
+                : "Save and continue"}
             </button>
           </form>
         </div>

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 
 type RouteContext = {
   params: Promise<{
@@ -67,7 +68,23 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 2. Get lead ID
+    // 2. Resolve the currently selected business
+    // --------------------------------------------------
+
+    const business = await getCurrentBusiness();
+
+    if (!business) {
+      return NextResponse.json(
+        {
+          error:
+            "No business is available. Please complete your business setup first.",
+        },
+        { status: 400 },
+      );
+    }
+
+    // --------------------------------------------------
+    // 3. Get lead ID
     // --------------------------------------------------
 
     const { id } = await context.params;
@@ -82,7 +99,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 3. Parse request body
+    // 4. Parse request body
     // --------------------------------------------------
 
     let body: UpdateBody;
@@ -99,7 +116,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 4. Verify lead belongs to authenticated user
+    // 5. Verify lead belongs to the selected business
     // --------------------------------------------------
 
     const { data: existingLead, error: leadError } =
@@ -109,6 +126,7 @@ export async function PATCH(
           `
             id,
             owner_id,
+            business_id,
             status,
             follow_up_status,
             ai_response,
@@ -121,6 +139,7 @@ export async function PATCH(
         )
         .eq("id", id)
         .eq("owner_id", user.id)
+        .eq("business_id", business.id)
         .maybeSingle();
 
     if (leadError) {
@@ -144,7 +163,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 5. Build safe lead update object
+    // 6. Build safe lead update object
     // --------------------------------------------------
 
     const updates: Record<string, string | null> = {};
@@ -210,11 +229,6 @@ export async function PATCH(
       savingFollowUp = true;
       followUpMessage = value;
 
-      // Saving an AI follow-up means there is now
-      // a follow-up task associated with this lead.
-      //
-      // "scheduled" is a valid value for
-      // leads.follow_up_status.
       updates.follow_up_status = "scheduled";
     }
 
@@ -281,7 +295,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 6. Make sure there is something to update
+    // 7. Make sure there is something to update
     // --------------------------------------------------
 
     if (Object.keys(updates).length === 0) {
@@ -294,11 +308,12 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 7. Update the lead
+    // 8. Update the lead
     // --------------------------------------------------
 
     console.log("LEAD UPDATE:", {
       leadId: id,
+      businessId: business.id,
       previousStatus: existingLead.status,
       requestedStatus: body.status,
       previousFollowUpStatus:
@@ -314,10 +329,12 @@ export async function PATCH(
       .update(updates)
       .eq("id", id)
       .eq("owner_id", user.id)
+      .eq("business_id", business.id)
       .select(
         `
           id,
           owner_id,
+          business_id,
           campaign_id,
           name,
           email,
@@ -354,7 +371,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 8. Create or update follow-up task when an
+    // 9. Create or update follow-up task when an
     //    AI follow-up is saved
     // --------------------------------------------------
 
@@ -362,10 +379,7 @@ export async function PATCH(
 
     if (savingFollowUp && followUpMessage) {
       // Check whether this lead already has a pending
-      // follow-up.
-      //
-      // This prevents duplicate pending tasks when the
-      // user saves the same AI follow-up again.
+      // follow-up in the selected business.
 
       const {
         data: existingFollowUp,
@@ -375,6 +389,7 @@ export async function PATCH(
         .select("id, status")
         .eq("lead_id", id)
         .eq("owner_id", user.id)
+        .eq("business_id", business.id)
         .eq("status", "pending")
         .maybeSingle();
 
@@ -395,8 +410,7 @@ export async function PATCH(
       }
 
       if (existingFollowUp) {
-        // Update the existing pending follow-up
-        // instead of creating another one.
+        // Update the existing pending follow-up.
 
         const {
           data: updatedFollowUp,
@@ -408,10 +422,12 @@ export async function PATCH(
           })
           .eq("id", existingFollowUp.id)
           .eq("owner_id", user.id)
+          .eq("business_id", business.id)
           .select(
             `
               id,
               owner_id,
+              business_id,
               lead_id,
               message,
               status,
@@ -454,6 +470,7 @@ export async function PATCH(
           .from("follow_ups")
           .insert({
             owner_id: user.id,
+            business_id: business.id,
             lead_id: id,
             message: followUpMessage,
             status: "pending",
@@ -463,6 +480,7 @@ export async function PATCH(
             `
               id,
               owner_id,
+              business_id,
               lead_id,
               message,
               status,
@@ -495,7 +513,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 9. Return result
+    // 10. Return result
     // --------------------------------------------------
 
     return NextResponse.json({

@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import Groq from "groq-sdk";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
+import { getCurrentUserPlan } from "@/lib/subscription";
+import { PLAN_LIMITS } from "@/lib/plans";
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -176,39 +179,58 @@ export async function POST(request: Request) {
     // 3. Get business profile
     // --------------------------------------------------
 
-    const { data: business, error: businessError } =
-      await supabase
-        .from("businesses")
-        .select(
-          "business_name, industry, services, target_customers, location, website, marketing_goal",
-        )
-        .eq("owner_id", user.id)
-        .maybeSingle();
+    const business = await getCurrentBusiness();
 
-    if (businessError) {
-      console.error(
-        "Business lookup error:",
-        businessError,
-      );
+if (!business) {
+  return NextResponse.json(
+    {
+      error:
+        "Please complete your business setup first.",
+    },
+    { status: 400 },
+  );
+}
 
-      return NextResponse.json(
-        {
-          error:
-            "Unable to load your business profile.",
-        },
-        { status: 500 },
-      );
-    }
+const plan = await getCurrentUserPlan();
+const campaignLimit = PLAN_LIMITS[plan].campaigns;
 
-    if (!business) {
-      return NextResponse.json(
-        {
-          error:
-            "Please complete your business setup first.",
-        },
-        { status: 400 },
-      );
-    }
+const { count: campaignCount, error: campaignCountError } =
+  await supabase
+    .from("campaigns")
+    .select("id", {
+      count: "exact",
+      head: true,
+    })
+    .eq("owner_id", user.id)
+    .eq("business_id", business.id);
+
+if (campaignCountError) {
+  console.error(
+    "Campaign count lookup error:",
+    campaignCountError,
+  );
+
+  return NextResponse.json(
+    {
+      error:
+        "Unable to check your campaign limit. Please try again.",
+    },
+    { status: 500 },
+  );
+}
+
+if (
+  campaignLimit !== Infinity &&
+  (campaignCount ?? 0) >= campaignLimit
+) {
+  return NextResponse.json(
+    {
+      error:
+        "Your Free plan allows up to 3 campaigns. Upgrade to Professional for unlimited campaigns.",
+    },
+    { status: 403 },
+  );
+}
 
     // --------------------------------------------------
     // 4. Generate campaign with Groq
@@ -597,6 +619,7 @@ ${promotion}`,
       .from("campaigns")
       .insert({
         owner_id: user.id,
+		 business_id: business.id,
         campaign_name:
           campaign.campaign_name,
         objective: campaign.objective,

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 
 type RouteContext = {
   params: Promise<{
@@ -44,7 +45,23 @@ export async function POST(
     }
 
     // --------------------------------------------------
-    // 2. Get lead ID
+    // 2. Resolve the currently selected business
+    // --------------------------------------------------
+
+    const business = await getCurrentBusiness();
+
+    if (!business) {
+      return NextResponse.json(
+        {
+          error:
+            "No business is available. Please complete your business setup first.",
+        },
+        { status: 400 },
+      );
+    }
+
+    // --------------------------------------------------
+    // 3. Get lead ID
     // --------------------------------------------------
 
     const { id } = await context.params;
@@ -59,7 +76,8 @@ export async function POST(
     }
 
     // --------------------------------------------------
-    // 3. Find the lead belonging to this user
+    // 4. Find the lead belonging to this user and
+    //    selected business
     // --------------------------------------------------
 
     const { data: lead, error: leadError } =
@@ -69,6 +87,7 @@ export async function POST(
           `
             id,
             owner_id,
+            business_id,
             name,
             email,
             phone,
@@ -77,6 +96,7 @@ export async function POST(
         )
         .eq("id", id)
         .eq("owner_id", user.id)
+        .eq("business_id", business.id)
         .maybeSingle();
 
     if (leadError) {
@@ -103,26 +123,27 @@ export async function POST(
     }
 
     // --------------------------------------------------
-    // 4. The lead must already be converted
+    // 5. The lead must already be converted
     // --------------------------------------------------
 
-   const normalizedStatus =
-  typeof lead.status === "string"
-    ? lead.status.trim().toLowerCase()
-    : "";
+    const normalizedStatus =
+      typeof lead.status === "string"
+        ? lead.status.trim().toLowerCase()
+        : "";
 
-if (normalizedStatus !== "converted") {
-  return NextResponse.json(
-    {
-      error:
-        "This lead must have a status of Converted before it can become a customer.",
-    },
-    { status: 400 },
-  );
-}
+    if (normalizedStatus !== "converted") {
+      return NextResponse.json(
+        {
+          error:
+            "This lead must have a status of Converted before it can become a customer.",
+        },
+        { status: 400 },
+      );
+    }
 
     // --------------------------------------------------
-    // 5. Check whether this lead already has a customer
+    // 6. Check whether this lead already has a customer
+    //    in the selected business
     // --------------------------------------------------
 
     const {
@@ -134,6 +155,7 @@ if (normalizedStatus !== "converted") {
         `
           id,
           owner_id,
+          business_id,
           lead_id,
           name,
           email,
@@ -144,6 +166,7 @@ if (normalizedStatus !== "converted") {
       )
       .eq("lead_id", lead.id)
       .eq("owner_id", user.id)
+      .eq("business_id", business.id)
       .maybeSingle();
 
     if (existingError) {
@@ -162,7 +185,7 @@ if (normalizedStatus !== "converted") {
     }
 
     // --------------------------------------------------
-    // 6. Prevent duplicate customers
+    // 7. Prevent duplicate customers
     // --------------------------------------------------
 
     if (existingCustomer) {
@@ -176,7 +199,7 @@ if (normalizedStatus !== "converted") {
     }
 
     // --------------------------------------------------
-    // 7. Create customer
+    // 8. Create customer
     // --------------------------------------------------
 
     const {
@@ -186,6 +209,7 @@ if (normalizedStatus !== "converted") {
       .from("customers")
       .insert({
         owner_id: user.id,
+        business_id: business.id,
         lead_id: lead.id,
         name: lead.name,
         email: lead.email,
@@ -195,6 +219,7 @@ if (normalizedStatus !== "converted") {
         `
           id,
           owner_id,
+          business_id,
           lead_id,
           name,
           email,
@@ -221,7 +246,7 @@ if (normalizedStatus !== "converted") {
     }
 
     // --------------------------------------------------
-    // 8. Return created customer
+    // 9. Return created customer
     // --------------------------------------------------
 
     return NextResponse.json({

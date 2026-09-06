@@ -18,6 +18,7 @@ type MarketingChannel =
 type MarketingTask = {
   id: string;
   owner_id: string;
+  business_id: string;
   automation_id: string;
   campaign_id: string;
   channel: string;
@@ -313,10 +314,11 @@ console.log(
 
 const facebookResult =
   await publishFacebookPost(
-    task.owner_id,
-    task.content,
-    facebookImageUrl,
-  );
+  task.owner_id,
+  task.business_id,
+  task.content,
+  facebookImageUrl,
+);
 
 
           if (!facebookResult.success) {
@@ -513,10 +515,11 @@ const facebookResult =
 
           const linkedInResult =
             await publishLinkedInPost(
-              task.owner_id,
-              task.content,
-              linkedInImageUrl,
-            );
+  task.owner_id,
+  task.business_id,
+  task.content,
+  linkedInImageUrl,
+);
 
           if (!linkedInResult.success) {
             await markTaskFailed(
@@ -626,6 +629,7 @@ const facebookResult =
           const instagramResult =
             await publishInstagramPost(
               task.owner_id,
+			  task.business_id,
               task.content,
               imageUrl,
             );

@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 import LeadAssistant from "./LeadAssistant";
 import ConvertToCustomer from "./ConvertToCustomer";
 
@@ -25,28 +26,36 @@ export default async function LeadDetailsPage({
     notFound();
   }
 
+  const business = await getCurrentBusiness();
+
+  if (!business) {
+    redirect("/onboarding");
+  }
+
   const { data: lead, error } = await supabase
-  .from("leads")
-  .select(
-    `
-      id,
-      owner_id,
-      campaign_id,
-      name,
-      email,
-      phone,
-      message,
-      source,
-      status,
-      follow_up_status,
-      created_at,
-      updated_at,
-      ai_response,
-      ai_follow_up
-    `,
-  )
+    .from("leads")
+    .select(
+      `
+        id,
+        owner_id,
+        business_id,
+        campaign_id,
+        name,
+        email,
+        phone,
+        message,
+        source,
+        status,
+        follow_up_status,
+        created_at,
+        updated_at,
+        ai_response,
+        ai_follow_up
+      `,
+    )
     .eq("id", id)
     .eq("owner_id", user.id)
+    .eq("business_id", business.id)
     .maybeSingle();
 
   if (error) {
@@ -64,10 +73,11 @@ export default async function LeadDetailsPage({
     const { data: campaignData } = await supabase
       .from("campaigns")
       .select(
-        "id, campaign_name, objective, target_audience, key_message, call_to_action",
+        "id, campaign_name, objective, target_audience, key_message, call_to_action, business_id",
       )
       .eq("id", lead.campaign_id)
       .eq("owner_id", user.id)
+      .eq("business_id", business.id)
       .maybeSingle();
 
     campaign = campaignData;
@@ -86,7 +96,7 @@ export default async function LeadDetailsPage({
         <div className="mt-6 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-sm font-bold uppercase tracking-wider text-blue-600">
-              ♙ Adverio Lead
+              ♡ Adverio Lead
             </p>
 
             <h1 className="mt-2 text-3xl font-bold tracking-tight">
@@ -95,6 +105,13 @@ export default async function LeadDetailsPage({
 
             <p className="mt-2 text-slate-600">
               Customer enquiry and AI response assistant.
+            </p>
+
+            <p className="mt-2 text-sm font-semibold text-slate-500">
+              Business:{" "}
+              <span className="text-slate-800">
+                {business.business_name}
+              </span>
             </p>
           </div>
 
@@ -194,17 +211,17 @@ export default async function LeadDetailsPage({
           {/* AI assistant */}
           <aside>
             <LeadAssistant
-  lead={{
-    id: lead.id,
-    name: lead.name,
-    email: lead.email,
-    phone: lead.phone,
-    message: lead.message,
-    status: lead.status,
-    follow_up_status: lead.follow_up_status,
-    ai_response: lead.ai_response,
-    ai_follow_up: lead.ai_follow_up,
-  }}
+              lead={{
+                id: lead.id,
+                name: lead.name,
+                email: lead.email,
+                phone: lead.phone,
+                message: lead.message,
+                status: lead.status,
+                follow_up_status: lead.follow_up_status,
+                ai_response: lead.ai_response,
+                ai_follow_up: lead.ai_follow_up,
+              }}
               campaign={
                 campaign
                   ? {
@@ -220,7 +237,7 @@ export default async function LeadDetailsPage({
               }
             />
           </aside>
-               </div>
+        </div>
 
         {/* Convert converted lead into customer */}
         <div className="mt-6">
@@ -308,6 +325,7 @@ function formatFollowUpStatus(status: string) {
     scheduled: "Scheduled",
     sent: "Sent",
     completed: "Completed",
+    cancelled: "Cancelled",
   };
 
   return labels[status] || status;

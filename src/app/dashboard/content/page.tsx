@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 import BackToTop from "./BackToTop";
 import CopyButton from "./CopyButton";
 
@@ -46,6 +48,20 @@ export default async function ContentPage() {
     );
   }
 
+  // --------------------------------------------------
+  // Resolve the currently selected business
+  // --------------------------------------------------
+
+  const business = await getCurrentBusiness();
+
+  if (!business) {
+    redirect("/onboarding");
+  }
+
+  // --------------------------------------------------
+  // Load campaigns for the selected business only
+  // --------------------------------------------------
+
   const { data: campaigns, error } = await supabase
     .from("campaigns")
     .select(
@@ -63,6 +79,7 @@ export default async function ContentPage() {
       `,
     )
     .eq("owner_id", user.id)
+    .eq("business_id", business.id)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -145,6 +162,13 @@ export default async function ContentPage() {
               <p className="mt-3 max-w-2xl text-slate-600">
                 View and copy the marketing content generated from your AI
                 campaigns.
+              </p>
+
+              <p className="mt-2 text-sm font-semibold text-slate-500">
+                Business:{" "}
+                <span className="text-slate-800">
+                  {business.business_name}
+                </span>
               </p>
             </div>
           </div>
@@ -242,8 +266,8 @@ export default async function ContentPage() {
           )}
         </section>
       </div>
-	  
-	   <BackToTop />
+
+      <BackToTop />
     </main>
   );
 }

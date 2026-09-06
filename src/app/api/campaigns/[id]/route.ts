@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 
 type RouteContext = {
   params: Promise<{
@@ -57,7 +58,22 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 2. Get campaign ID
+    // 2. Resolve selected business
+    // --------------------------------------------------
+
+    const business = await getCurrentBusiness();
+
+    if (!business) {
+      return NextResponse.json(
+        {
+          error: "No business found.",
+        },
+        { status: 404 },
+      );
+    }
+
+    // --------------------------------------------------
+    // 3. Get campaign ID
     // --------------------------------------------------
 
     const { id } = await context.params;
@@ -72,7 +88,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 3. Parse request body
+    // 4. Parse request body
     // --------------------------------------------------
 
     let body: UpdateBody;
@@ -89,7 +105,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 4. Validate status
+    // 5. Validate status
     // --------------------------------------------------
 
     if (!isValidStatus(body.status)) {
@@ -105,7 +121,7 @@ export async function PATCH(
     const newStatus = body.status;
 
     // --------------------------------------------------
-    // 5. Verify campaign belongs to user
+    // 6. Verify campaign belongs to user + business
     // --------------------------------------------------
 
     const {
@@ -113,9 +129,12 @@ export async function PATCH(
       error: lookupError,
     } = await supabase
       .from("campaigns")
-      .select("id, owner_id, status")
+      .select(
+        "id, owner_id, business_id, status",
+      )
       .eq("id", id)
       .eq("owner_id", user.id)
+      .eq("business_id", business.id)
       .maybeSingle();
 
     if (lookupError) {
@@ -143,7 +162,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 6. Completed campaigns cannot be changed
+    // 7. Completed campaigns cannot be changed
     // --------------------------------------------------
 
     if (existingCampaign.status === "completed") {
@@ -157,7 +176,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 7. No change required
+    // 8. No change required
     // --------------------------------------------------
 
     if (existingCampaign.status === newStatus) {
@@ -168,7 +187,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 8. Update campaign status
+    // 9. Update campaign status
     // --------------------------------------------------
 
     const {
@@ -182,6 +201,7 @@ export async function PATCH(
       })
       .eq("id", id)
       .eq("owner_id", user.id)
+      .eq("business_id", business.id)
       .select(
         "id, campaign_name, status, updated_at",
       )
@@ -203,7 +223,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 9. Find existing marketing automation
+    // 10. Find existing marketing automation
     // --------------------------------------------------
 
     const {
@@ -216,6 +236,7 @@ export async function PATCH(
       )
       .eq("campaign_id", id)
       .eq("owner_id", user.id)
+      .eq("business_id", business.id)
       .maybeSingle();
 
     if (automationLookupError) {
@@ -234,7 +255,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 10. Activate campaign
+    // 11. Activate campaign
     //
     // Create an automation if one does not exist.
     // Otherwise reactivate the existing automation.
@@ -249,6 +270,7 @@ export async function PATCH(
           .from("marketing_automations")
           .insert({
             owner_id: user.id,
+            business_id: business.id,
             campaign_id: id,
             status: "active",
             frequency: "daily",
@@ -294,6 +316,7 @@ export async function PATCH(
         })
         .eq("id", existingAutomation.id)
         .eq("owner_id", user.id)
+        .eq("business_id", business.id)
         .select()
         .single();
 
@@ -322,7 +345,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 11. Pause campaign
+    // 12. Pause campaign
     // --------------------------------------------------
 
     if (newStatus === "paused") {
@@ -338,6 +361,7 @@ export async function PATCH(
           })
           .eq("id", existingAutomation.id)
           .eq("owner_id", user.id)
+          .eq("business_id", business.id)
           .select()
           .single();
 
@@ -374,7 +398,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 12. Complete campaign
+    // 13. Complete campaign
     // --------------------------------------------------
 
     if (newStatus === "completed") {
@@ -393,6 +417,7 @@ export async function PATCH(
           })
           .eq("id", existingAutomation.id)
           .eq("owner_id", user.id)
+          .eq("business_id", business.id)
           .select()
           .single();
 
@@ -429,7 +454,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 13. Draft campaign
+    // 14. Draft campaign
     // --------------------------------------------------
 
     if (newStatus === "draft") {
@@ -445,6 +470,7 @@ export async function PATCH(
           })
           .eq("id", existingAutomation.id)
           .eq("owner_id", user.id)
+          .eq("business_id", business.id)
           .select()
           .single();
 
@@ -474,7 +500,7 @@ export async function PATCH(
     }
 
     // --------------------------------------------------
-    // 14. Normal response
+    // 15. Normal response
     // --------------------------------------------------
 
     return NextResponse.json({
@@ -529,7 +555,22 @@ export async function DELETE(
     }
 
     // --------------------------------------------------
-    // 2. Get campaign ID
+    // 2. Resolve selected business
+    // --------------------------------------------------
+
+    const business = await getCurrentBusiness();
+
+    if (!business) {
+      return NextResponse.json(
+        {
+          error: "No business found.",
+        },
+        { status: 404 },
+      );
+    }
+
+    // --------------------------------------------------
+    // 3. Get campaign ID
     // --------------------------------------------------
 
     const { id } = await context.params;
@@ -544,7 +585,7 @@ export async function DELETE(
     }
 
     // --------------------------------------------------
-    // 3. Verify campaign belongs to user
+    // 4. Verify campaign belongs to user + business
     // --------------------------------------------------
 
     const {
@@ -552,9 +593,12 @@ export async function DELETE(
       error: lookupError,
     } = await supabase
       .from("campaigns")
-      .select("id, owner_id, status")
+      .select(
+        "id, owner_id, business_id, status",
+      )
       .eq("id", id)
       .eq("owner_id", user.id)
+      .eq("business_id", business.id)
       .maybeSingle();
 
     if (lookupError) {
@@ -582,7 +626,7 @@ export async function DELETE(
     }
 
     // --------------------------------------------------
-    // 4. Protect active campaigns
+    // 5. Protect active campaigns
     // --------------------------------------------------
 
     if (campaign.status === "active") {
@@ -596,7 +640,7 @@ export async function DELETE(
     }
 
     // --------------------------------------------------
-    // 5. Find automation
+    // 6. Find automation
     // --------------------------------------------------
 
     const {
@@ -607,6 +651,7 @@ export async function DELETE(
       .select("id")
       .eq("campaign_id", id)
       .eq("owner_id", user.id)
+      .eq("business_id", business.id)
       .maybeSingle();
 
     if (automationLookupError) {
@@ -625,7 +670,7 @@ export async function DELETE(
     }
 
     // --------------------------------------------------
-    // 6. Delete marketing tasks first
+    // 7. Delete marketing tasks first
     //
     // marketing_tasks references marketing_automations.
     // --------------------------------------------------
@@ -636,7 +681,8 @@ export async function DELETE(
           .from("marketing_tasks")
           .delete()
           .eq("automation_id", automation.id)
-          .eq("owner_id", user.id);
+          .eq("owner_id", user.id)
+          .eq("business_id", business.id);
 
       if (taskDeleteError) {
         console.error(
@@ -654,7 +700,7 @@ export async function DELETE(
       }
 
       // ------------------------------------------------
-      // 7. Delete marketing automation
+      // 8. Delete marketing automation
       // ------------------------------------------------
 
       const { error: automationDeleteError } =
@@ -662,7 +708,8 @@ export async function DELETE(
           .from("marketing_automations")
           .delete()
           .eq("id", automation.id)
-          .eq("owner_id", user.id);
+          .eq("owner_id", user.id)
+          .eq("business_id", business.id);
 
       if (automationDeleteError) {
         console.error(
@@ -681,7 +728,7 @@ export async function DELETE(
     }
 
     // --------------------------------------------------
-    // 8. Delete campaign
+    // 9. Delete campaign
     // --------------------------------------------------
 
     const { error: deleteError } =
@@ -689,7 +736,8 @@ export async function DELETE(
         .from("campaigns")
         .delete()
         .eq("id", id)
-        .eq("owner_id", user.id);
+        .eq("owner_id", user.id)
+        .eq("business_id", business.id);
 
     if (deleteError) {
       console.error(

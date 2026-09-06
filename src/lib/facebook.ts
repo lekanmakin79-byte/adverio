@@ -14,11 +14,18 @@ type FacebookPublishResult = {
 
 export async function publishFacebookPost(
   ownerId: string,
+  businessId: string,
   message: string,
   imageUrl?: string | null,
 ): Promise<FacebookPublishResult> {
 
   if (!ownerId) {
+	  if (!businessId) {
+  return {
+    success: false,
+    error: "Missing business ID.",
+  };
+}
     return {
       success: false,
       error: "Missing owner ID.",
@@ -44,6 +51,7 @@ export async function publishFacebookPost(
         "platform_page_id, platform_page_name, access_token",
       )
       .eq("owner_id", ownerId)
+	  .eq("business_id", businessId)
       .eq("platform", "facebook")
       .maybeSingle();
 

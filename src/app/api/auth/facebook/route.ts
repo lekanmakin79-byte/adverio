@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 
 export async function GET() {
   const supabase = await createClient();
@@ -9,13 +10,21 @@ export async function GET() {
     error,
   } = await supabase.auth.getUser();
 
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "http://localhost:3000";
+
   if (error || !user) {
     return NextResponse.redirect(
-      new URL(
-        "/login",
-        process.env.NEXT_PUBLIC_SITE_URL ||
-          "http://localhost:3000",
-      ),
+      new URL("/login", siteUrl),
+    );
+  }
+
+  const business = await getCurrentBusiness();
+
+  if (!business) {
+    return NextResponse.redirect(
+      new URL("/onboarding", siteUrl),
     );
   }
 
@@ -29,10 +38,6 @@ export async function GET() {
       { status: 500 },
     );
   }
-
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    "http://localhost:3000";
 
   const redirectUri =
     `${siteUrl}/api/auth/facebook/callback`;
@@ -55,6 +60,18 @@ export async function GET() {
   response.cookies.set(
     "facebook_oauth_state",
     state,
+    {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 600,
+    },
+  );
+
+  response.cookies.set(
+    "facebook_oauth_business",
+    business.id,
     {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 
 export async function GET() {
   const supabase = await createClient();
@@ -11,7 +12,21 @@ export async function GET() {
 
   if (error || !user) {
     return NextResponse.redirect(
-      new URL("/login", process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
+      new URL(
+        "/login",
+        process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+      ),
+    );
+  }
+
+  const business = await getCurrentBusiness();
+
+  if (!business) {
+    return NextResponse.redirect(
+      new URL(
+        "/onboarding",
+        process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+      ),
     );
   }
 
@@ -42,6 +57,14 @@ export async function GET() {
   );
 
   response.cookies.set("linkedin_oauth_state", state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 600,
+  });
+
+  response.cookies.set("linkedin_oauth_business", business.id, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",

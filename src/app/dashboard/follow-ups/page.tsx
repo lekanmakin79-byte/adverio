@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import FollowUpActions from "./FollowUpActions";
@@ -80,7 +81,17 @@ export default async function FollowUpsPage() {
   }
 
   // --------------------------------------------------
-  // 2. Load follow-ups belonging to this user
+  // 2. Resolve the currently selected business
+  // --------------------------------------------------
+
+  const business = await getCurrentBusiness();
+
+  if (!business) {
+    redirect("/onboarding");
+  }
+
+  // --------------------------------------------------
+  // 3. Load follow-ups for the selected business only
   // --------------------------------------------------
 
   const { data, error } = await supabase
@@ -103,6 +114,7 @@ export default async function FollowUpsPage() {
       `,
     )
     .eq("owner_id", user.id)
+    .eq("business_id", business.id)
     .order("due_at", {
       ascending: true,
     });
@@ -112,7 +124,7 @@ export default async function FollowUpsPage() {
   }
 
   // --------------------------------------------------
-  // 3. Normalise the Supabase relationship
+  // 4. Normalise the Supabase relationship
   //
   // Supabase can return the related lead as an array.
   // The application uses one lead per follow-up, so
@@ -137,7 +149,7 @@ export default async function FollowUpsPage() {
   });
 
   // --------------------------------------------------
-  // 4. Summary statistics
+  // 5. Summary statistics
   // --------------------------------------------------
 
   const pending = items.filter(
@@ -153,7 +165,7 @@ export default async function FollowUpsPage() {
   ).length;
 
   // --------------------------------------------------
-  // 5. Render page
+  // 6. Render page
   // --------------------------------------------------
 
   return (
@@ -184,6 +196,13 @@ export default async function FollowUpsPage() {
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
               Keep track of leads that need a response
               and follow up at the right time.
+            </p>
+
+            <p className="mt-2 text-sm font-semibold text-slate-500">
+              Business:{" "}
+              <span className="text-slate-800">
+                {business.business_name}
+              </span>
             </p>
           </div>
         </div>

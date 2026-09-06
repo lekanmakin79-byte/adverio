@@ -78,7 +78,7 @@ export async function POST(request: Request) {
     // Only active campaigns can receive public enquiries.
     const { data: campaign, error: campaignError } = await supabase
       .from("campaigns")
-      .select("id, owner_id, status")
+      .select("id, owner_id, business_id, status")
       .eq("id", campaignId)
       .eq("status", "active")
       .maybeSingle();
@@ -108,6 +108,7 @@ export async function POST(request: Request) {
       .from("leads")
       .insert({
         owner_id: campaign.owner_id,
+		business_id: campaign.business_id,
         campaign_id: campaign.id,
         name,
         email: email || null,

@@ -1,12 +1,14 @@
 ﻿import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 import CreativeStudio from "./CreativeStudio";
 import CampaignActions from "./CampaignActions";
 import CopyEnquiryLink from "./CopyEnquiryLink";
 
 type Campaign = {
   id: string;
+  business_id: string;
   campaign_name: string;
   objective: string;
   target_audience: string;
@@ -45,11 +47,26 @@ export default async function CampaignDetailsPage({
     notFound();
   }
 
+  // --------------------------------------------------
+  // Resolve the currently selected business
+  // --------------------------------------------------
+
+  const business = await getCurrentBusiness();
+
+  if (!business) {
+    notFound();
+  }
+
+  // --------------------------------------------------
+  // Load the campaign for the selected business only
+  // --------------------------------------------------
+
   const { data: campaign, error } = await supabase
     .from("campaigns")
     .select("*")
     .eq("id", id)
     .eq("owner_id", user.id)
+    .eq("business_id", business.id)
     .maybeSingle();
 
   if (error) {
@@ -62,8 +79,8 @@ export default async function CampaignDetailsPage({
   }
 
   const typedCampaign = campaign as Campaign;
-  
-    const siteUrl =
+
+  const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL ||
     "http://localhost:3000";
 
@@ -71,7 +88,10 @@ export default async function CampaignDetailsPage({
     `${siteUrl}/enquire/${typedCampaign.id}`;
 
   return (
-    <main  id="top"  className="min-h-screen bg-slate-50 text-slate-950">
+    <main
+      id="top"
+      className="min-h-screen bg-slate-50 text-slate-950"
+    >
       <div className="mx-auto max-w-6xl px-6 py-10 lg:px-8">
         {/* Back navigation */}
         <Link
@@ -99,6 +119,13 @@ export default async function CampaignDetailsPage({
 
               <p className="mt-4 max-w-3xl leading-7 text-slate-300">
                 {typedCampaign.objective}
+              </p>
+
+              <p className="mt-3 text-sm font-semibold text-slate-400">
+                Business:{" "}
+                <span className="text-slate-200">
+                  {business.business_name}
+                </span>
               </p>
             </div>
 
@@ -231,8 +258,8 @@ export default async function CampaignDetailsPage({
             </div>
           </div>
         </section>
-		
-		        {/* Public enquiry form */}
+
+        {/* Public enquiry form */}
         {typedCampaign.status === "active" && (
           <section className="mt-10">
             <SectionHeading
@@ -253,17 +280,17 @@ export default async function CampaignDetailsPage({
               </div>
 
               <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-  <Link
-    href={`/enquire/${typedCampaign.id}`}
-    target="_blank"
-    rel="noopener noreferrer"
-    className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700"
-  >
-    Open Public Enquiry Form
-  </Link>
+                <Link
+                  href={`/enquire/${typedCampaign.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700"
+                >
+                  Open Public Enquiry Form
+                </Link>
 
-  <CopyEnquiryLink url={publicEnquiryUrl} />
-</div>
+                <CopyEnquiryLink url={publicEnquiryUrl} />
+              </div>
 
               <p className="mt-3 text-xs leading-5 text-slate-500">
                 Customers do not need an Adverio account to use this form.
@@ -297,14 +324,15 @@ export default async function CampaignDetailsPage({
           </Link>
         </div>
       </div>
-	  
-	  <a
-  href="#top"
-  aria-label="Return to top"
-  className="fixed bottom-6 right-6 z-50 inline-flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
->
-  ↑ Top
-</a>
+
+      {/* Return to top */}
+      <a
+        href="#top"
+        aria-label="Return to top"
+        className="fixed bottom-6 right-6 z-50 inline-flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+      >
+        ↑ Top
+      </a>
     </main>
   );
 }

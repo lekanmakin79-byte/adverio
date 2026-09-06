@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import {
+  getCurrentBusiness,
+  getUserBusinesses,
+} from "@/lib/business";
 import DashboardMobileMenu from "@/components/DashboardMobileMenu";
 import BackToTop from "@/components/BackToTop";
 
@@ -29,32 +33,32 @@ const navigation = [
   {
     label: "Overview",
     href: "/dashboard",
-    icon: "⌂",
+    icon: "âŒ‚",
   },
   {
     label: "AI Campaigns",
     href: "/dashboard/campaigns",
-    icon: "✦",
+    icon: "âœ¦",
   },
   {
     label: "Content",
     href: "/dashboard/content",
-    icon: "▤",
+    icon: "â–¤",
   },
   {
     label: "Leads",
     href: "/dashboard/leads",
-    icon: "♙",
+    icon: "â™™",
   },
   {
     label: "Follow-ups",
     href: "/dashboard/follow-ups",
-    icon: "↗",
+    icon: "â†—",
   },
   {
     label: "Analytics",
     href: "/dashboard/analytics",
-    icon: "▥",
+    icon: "â–¥",
   },
 ];
 
@@ -69,40 +73,40 @@ export default async function AnalyticsPage() {
     redirect("/login");
   }
 
+  const business = await getCurrentBusiness();
+
+  if (!business) {
+    redirect("/onboarding");
+  }
+
+  const businesses = await getUserBusinesses();
+
   const [
-    { data: business },
     { data: campaigns },
     { data: leads },
     { data: followUps },
   ] = await Promise.all([
     supabase
-      .from("businesses")
-      .select("*")
-      .eq("owner_id", user.id)
-      .maybeSingle(),
-
-    supabase
       .from("campaigns")
       .select("id, campaign_name, status, created_at")
       .eq("owner_id", user.id)
+      .eq("business_id", business.id)
       .order("created_at", { ascending: false }),
 
     supabase
       .from("leads")
       .select("id, name, status, created_at")
       .eq("owner_id", user.id)
+      .eq("business_id", business.id)
       .order("created_at", { ascending: false }),
 
     supabase
       .from("follow_ups")
       .select("id, status, due_at, created_at")
       .eq("owner_id", user.id)
+      .eq("business_id", business.id)
       .order("created_at", { ascending: false }),
   ]);
-
-  if (!business) {
-    redirect("/onboarding");
-  }
 
   const campaignList: Campaign[] = campaigns ?? [];
   const leadList: Lead[] = leads ?? [];
@@ -219,7 +223,7 @@ export default async function AnalyticsPage() {
                   className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
                 >
                   <span className="flex h-7 w-7 items-center justify-center rounded-md text-base">
-                    ⚙
+                    âš™
                   </span>
 
                   Business Settings
@@ -247,7 +251,10 @@ export default async function AnalyticsPage() {
           <header className="border-b border-slate-200 bg-white">
             <div className="flex h-20 items-center justify-between px-6 lg:px-8">
               <div className="flex items-center gap-3">
-                <DashboardMobileMenu />
+                <DashboardMobileMenu
+                  businesses={businesses}
+                  currentBusinessId={business.id}
+                />
 
                 <div>
                   <p className="text-sm text-slate-500 lg:hidden">
@@ -287,12 +294,12 @@ export default async function AnalyticsPage() {
                 href="/dashboard"
                 className="text-sm font-semibold text-blue-600 transition hover:text-blue-700"
               >
-                ← Back to dashboard
+                â† Back to dashboard
               </Link>
 
               <div className="mt-5">
                 <p className="text-sm font-bold uppercase tracking-wider text-blue-600">
-                  ✦ Adverio AI
+                  âœ¦ Adverio AI
                 </p>
 
                 <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
@@ -312,14 +319,14 @@ export default async function AnalyticsPage() {
                 label="Total campaigns"
                 value={campaignList.length}
                 description={`${activeCampaigns} currently active`}
-                icon="✦"
+                icon="âœ¦"
               />
 
               <MetricCard
                 label="Total leads"
                 value={leadList.length}
                 description={`${newLeads} new enquiries`}
-                icon="♙"
+                icon="â™™"
               />
 
               <MetricCard
@@ -333,7 +340,7 @@ export default async function AnalyticsPage() {
                 label="Pending follow-ups"
                 value={pendingFollowUps}
                 description={`${completedFollowUps} completed`}
-                icon="↗"
+                icon="â†—"
               />
             </section>
 
@@ -457,7 +464,7 @@ export default async function AnalyticsPage() {
                   href="/dashboard/follow-ups"
                   className="text-sm font-semibold text-blue-600 hover:text-blue-700"
                 >
-                  View follow-ups →
+                  View follow-ups â†’
                 </Link>
               </div>
 
@@ -493,7 +500,7 @@ export default async function AnalyticsPage() {
                   href="/dashboard/campaigns"
                   className="text-sm font-semibold text-blue-600 hover:text-blue-700"
                 >
-                  View all campaigns →
+                  View all campaigns â†’
                 </Link>
               </div>
 
@@ -552,7 +559,7 @@ export default async function AnalyticsPage() {
                   href="/dashboard/leads"
                   className="text-sm font-semibold text-blue-600 hover:text-blue-700"
                 >
-                  View all leads →
+                  View all leads â†’
                 </Link>
               </div>
 
@@ -600,7 +607,7 @@ export default async function AnalyticsPage() {
               <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
                 <div className="max-w-2xl">
                   <p className="text-sm font-bold uppercase tracking-wider text-blue-400">
-                    ✦ Grow with Adverio
+                    âœ¦ Grow with Adverio
                   </p>
 
                   <h2 className="mt-2 text-2xl font-bold">

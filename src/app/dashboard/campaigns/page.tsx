@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentBusiness } from "@/lib/business";
 
 type Campaign = {
   id: string;
@@ -19,7 +21,10 @@ export default async function CampaignsPage() {
 
   if (!user) {
     return (
-      <main id="top" className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
+      <main
+        id="top"
+        className="flex min-h-screen items-center justify-center bg-slate-50 px-6"
+      >
         <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
           <h1 className="text-xl font-bold text-slate-950">
             Please sign in
@@ -40,12 +45,27 @@ export default async function CampaignsPage() {
     );
   }
 
+  // --------------------------------------------------
+  // Resolve the currently selected business
+  // --------------------------------------------------
+
+  const business = await getCurrentBusiness();
+
+  if (!business) {
+    redirect("/onboarding");
+  }
+
+  // --------------------------------------------------
+  // Load campaigns for the selected business only
+  // --------------------------------------------------
+
   const { data: campaigns, error } = await supabase
     .from("campaigns")
     .select(
       "id, campaign_name, objective, target_audience, status, created_at",
     )
     .eq("owner_id", user.id)
+    .eq("business_id", business.id)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -55,7 +75,10 @@ export default async function CampaignsPage() {
   const campaignList: Campaign[] = campaigns ?? [];
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-950">
+    <main
+      id="top"
+      className="min-h-screen bg-slate-50 text-slate-950"
+    >
       <div className="mx-auto max-w-6xl px-6 py-10 lg:px-8">
         {/* Header */}
         <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
@@ -78,6 +101,13 @@ export default async function CampaignsPage() {
 
               <p className="mt-3 max-w-2xl text-slate-600">
                 Create, review and manage your AI-powered marketing campaigns.
+              </p>
+
+              <p className="mt-2 text-sm font-semibold text-slate-500">
+                Business:{" "}
+                <span className="text-slate-800">
+                  {business.business_name}
+                </span>
               </p>
             </div>
           </div>
@@ -107,17 +137,29 @@ export default async function CampaignsPage() {
 
           <StatCard
             label="Drafts"
-            value={campaignList.filter((campaign) => campaign.status === "draft").length}
+            value={
+              campaignList.filter(
+                (campaign) => campaign.status === "draft",
+              ).length
+            }
           />
 
           <StatCard
             label="Active"
-            value={campaignList.filter((campaign) => campaign.status === "active").length}
+            value={
+              campaignList.filter(
+                (campaign) => campaign.status === "active",
+              ).length
+            }
           />
 
           <StatCard
             label="Completed"
-            value={campaignList.filter((campaign) => campaign.status === "completed").length}
+            value={
+              campaignList.filter(
+                (campaign) => campaign.status === "completed",
+              ).length
+            }
           />
         </div>
 
@@ -128,20 +170,24 @@ export default async function CampaignsPage() {
           ) : (
             <div className="space-y-4">
               {campaignList.map((campaign) => (
-                <CampaignCard key={campaign.id} campaign={campaign} />
+                <CampaignCard
+                  key={campaign.id}
+                  campaign={campaign}
+                />
               ))}
             </div>
           )}
         </section>
       </div>
-	  
-	  <a
-  href="#top"
-  aria-label="Return to top"
-  className="fixed bottom-6 right-6 z-50 inline-flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
->
-  ↑ Top
-</a>
+
+      {/* Return to top */}
+      <a
+        href="#top"
+        aria-label="Return to top"
+        className="fixed bottom-6 right-6 z-50 inline-flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+      >
+        ↑ Top
+      </a>
     </main>
   );
 }
@@ -157,7 +203,9 @@ function StatCard({
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <p className="text-sm font-medium text-slate-500">{label}</p>
 
-      <p className="mt-2 text-3xl font-bold text-slate-950">{value}</p>
+      <p className="mt-2 text-3xl font-bold text-slate-950">
+        {value}
+      </p>
     </div>
   );
 }
