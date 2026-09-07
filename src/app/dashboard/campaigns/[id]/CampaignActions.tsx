@@ -12,15 +12,46 @@ type CampaignStatus =
 export default function CampaignActions({
   campaignId,
   status,
+  facebookPost,
+  instagramPost,
+  linkedinPost,
 }: {
   campaignId: string;
   status: CampaignStatus;
+  facebookPost: string;
+  instagramPost: string;
+  linkedinPost: string;
 }) {
   const router = useRouter();
 
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
+  const [copiedChannel, setCopiedChannel] = useState("");
+
+  async function copyContent(
+    channel: string,
+    content: string,
+  ) {
+    try {
+      await navigator.clipboard.writeText(content);
+
+      setCopiedChannel(channel);
+
+      window.setTimeout(() => {
+        setCopiedChannel("");
+      }, 2000);
+    } catch (err) {
+      console.error(
+        "Copy campaign content error:",
+        err,
+      );
+
+      setError(
+        "Unable to copy the content. Please try again.",
+      );
+    }
+  }
 
   async function updateStatus(
     newStatus: CampaignStatus,
@@ -155,89 +186,187 @@ export default function CampaignActions({
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="flex flex-col gap-5">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
-              Campaign controls
+      <div className="flex flex-col gap-6">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+            Publish & share
+          </p>
+
+          <h2 className="mt-1 text-lg font-bold text-slate-950">
+            Use your marketing content anywhere
+          </h2>
+
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+            Copy any generated post and publish it manually on
+            your own social media account. You do not need to
+            connect a marketing channel to use your campaign.
+          </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
+            <p className="text-sm font-bold text-slate-950">
+              🔵 Facebook
             </p>
 
-            <h2 className="mt-1 text-lg font-bold text-slate-950">
-              {status === "draft"
-                ? "Ready to activate?"
-                : status === "active"
-                  ? "Campaign is active"
-                  : "Campaign is paused"}
-            </h2>
-
-            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
-              {status === "draft"
-                ? "Review the generated content above. When you're happy with it, activate the campaign."
-                : status === "active"
-                  ? "This campaign is approved and ready for the Adverio automation system."
-                  : "This campaign is currently paused and will not participate in automation."}
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Copy your Facebook marketing post and publish it
+              manually on your Facebook Page or account.
             </p>
+
+            <button
+              type="button"
+              onClick={() =>
+                copyContent(
+                  "Facebook",
+                  facebookPost,
+                )
+              }
+              className="mt-4 inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+            >
+              {copiedChannel === "Facebook"
+                ? "✓ Copied"
+                : "Copy Facebook Post"}
+            </button>
           </div>
 
-          <div className="flex shrink-0 flex-wrap gap-3">
-            {status === "draft" && (
-              <button
-                type="button"
-                onClick={() =>
-                  updateStatus("active")
-                }
-                disabled={loading || deleting}
-                className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {loading
-                  ? "Activating..."
-                  : "✓ Approve & Activate"}
-              </button>
-            )}
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
+            <p className="text-sm font-bold text-slate-950">
+              📸 Instagram
+            </p>
 
-            {status === "active" && (
-              <button
-                type="button"
-                onClick={() =>
-                  updateStatus("paused")
-                }
-                disabled={loading || deleting}
-                className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-amber-500 hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {loading
-                  ? "Pausing..."
-                  : "Pause Campaign"}
-              </button>
-            )}
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Copy your Instagram caption and publish it manually
+              on your Instagram account.
+            </p>
 
-            {status === "paused" && (
-              <button
-                type="button"
-                onClick={() =>
-                  updateStatus("active")
-                }
-                disabled={loading || deleting}
-                className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {loading
-                  ? "Resuming..."
-                  : "Resume Campaign"}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() =>
+                copyContent(
+                  "Instagram",
+                  instagramPost,
+                )
+              }
+              className="mt-4 inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+            >
+              {copiedChannel === "Instagram"
+                ? "✓ Copied"
+                : "Copy Instagram Post"}
+            </button>
+          </div>
 
-            {(status === "draft" ||
-              status === "paused") && (
-              <button
-                type="button"
-                onClick={deleteCampaign}
-                disabled={loading || deleting}
-                className="inline-flex items-center justify-center rounded-xl border border-red-200 bg-white px-5 py-3 text-sm font-semibold text-red-600 transition hover:border-red-400 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {deleting
-                  ? "Deleting..."
-                  : "Delete Campaign"}
-              </button>
-            )}
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
+            <p className="text-sm font-bold text-slate-950">
+              💼 LinkedIn
+            </p>
+
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Copy your LinkedIn marketing post and publish it
+              manually on your LinkedIn profile or company page.
+            </p>
+
+            <button
+              type="button"
+              onClick={() =>
+                copyContent(
+                  "LinkedIn",
+                  linkedinPost,
+                )
+              }
+              className="mt-4 inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+            >
+              {copiedChannel === "LinkedIn"
+                ? "✓ Copied"
+                : "Copy LinkedIn Post"}
+            </button>
+          </div>
+        </div>
+
+        <div className="border-t border-slate-200 pt-6">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                Campaign controls
+              </p>
+
+              <h2 className="mt-1 text-lg font-bold text-slate-950">
+                {status === "draft"
+                  ? "Ready to activate?"
+                  : status === "active"
+                    ? "Campaign is active"
+                    : "Campaign is paused"}
+              </h2>
+
+              <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
+                {status === "draft"
+                  ? "Review the generated content above. When you're happy with it, activate the campaign."
+                  : status === "active"
+                    ? "This campaign is approved and ready for the Adverio automation system."
+                    : "This campaign is currently paused and will not participate in automation."}
+              </p>
+            </div>
+
+            <div className="flex shrink-0 flex-wrap gap-3">
+              {status === "draft" && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateStatus("active")
+                  }
+                  disabled={loading || deleting}
+                  className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {loading
+                    ? "Activating..."
+                    : "✓ Approve & Activate"}
+                </button>
+              )}
+
+              {status === "active" && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateStatus("paused")
+                  }
+                  disabled={loading || deleting}
+                  className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-amber-500 hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {loading
+                    ? "Pausing..."
+                    : "Pause Campaign"}
+                </button>
+              )}
+
+              {status === "paused" && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateStatus("active")
+                  }
+                  disabled={loading || deleting}
+                  className="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {loading
+                    ? "Resuming..."
+                    : "Resume Campaign"}
+                </button>
+              )}
+
+              {(status === "draft" ||
+                status === "paused") && (
+                <button
+                  type="button"
+                  onClick={deleteCampaign}
+                  disabled={loading || deleting}
+                  className="inline-flex items-center justify-center rounded-xl border border-red-200 bg-white px-5 py-3 text-sm font-semibold text-red-600 transition hover:border-red-400 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {deleting
+                    ? "Deleting..."
+                    : "Delete Campaign"}
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

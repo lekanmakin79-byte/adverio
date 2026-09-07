@@ -11,29 +11,39 @@ const features = [
       "Create targeted campaigns, promotions and content ideas based on your business, services and ideal customers.",
   },
   {
-    title: "Automated Lead Response",
+    title: "Campaign Publishing & Sharing",
+    description:
+      "Publish campaign content to connected marketing channels or copy your Facebook, Instagram and LinkedIn content for manual sharing.",
+  },
+  {
+    title: "AI Lead Responses",
     description:
       "Respond to new enquiries quickly with AI-generated messages tailored to your business and the customer's needs.",
   },
   {
     title: "Smart Follow-Ups",
     description:
-      "Keep following up with potential customers automatically so valuable enquiries don't get forgotten.",
+      "Keep following up with potential customers automatically so valuable enquiries do not get forgotten.",
+  },
+  {
+    title: "Public Enquiry Forms",
+    description:
+      "Give customers a simple public enquiry link connected to your campaign so they can contact your business without creating an Adverio account.",
+  },
+  {
+    title: "Lead & Customer Management",
+    description:
+      "Manage leads, customers and follow-ups from one clear dashboard so you can keep track of opportunities.",
   },
   {
     title: "Content That Works",
     description:
-      "Generate social posts, email campaigns and promotional content designed to attract the customers you want.",
-  },
-  {
-    title: "Simple Lead Management",
-    description:
-      "See your new enquiries, follow-ups and customer opportunities in one clear dashboard.",
+      "Generate social posts, email campaigns and promotional content designed to help promote your business, products and services.",
   },
   {
     title: "Marketing Insights",
     description:
-      "Understand which campaigns generate enquiries and where your marketing efforts are producing results.",
+      "Understand your marketing activity and see where campaigns, enquiries and customer opportunities are developing.",
   },
 ];
 
@@ -52,9 +62,15 @@ const steps = [
   },
   {
     number: "03",
-    title: "Automate your customer journey",
+    title: "Publish and capture enquiries",
     description:
-      "Capture enquiries, respond quickly and follow up automatically.",
+      "Share your campaign content, publish to connected channels and give customers an easy way to enquire.",
+  },
+  {
+    number: "04",
+    title: "Follow up automatically",
+    description:
+      "Keep potential customers moving forward with organised follow-ups and marketing automation.",
   },
 ];
 
@@ -68,71 +84,71 @@ const industries = [
 ];
 
 export default function Home() {
-	  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-	
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
     <main className="min-h-screen bg-white text-slate-950">
-            {/* Navigation */}
-<nav className="relative border-b border-slate-200 bg-white">
-  <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 lg:px-8">
-    <a
-      href="/"
-      className="text-2xl font-bold tracking-tight text-slate-950"
-    >
-      Adverio<span className="text-blue-600">.</span>
-    </a>
+      {/* Navigation */}
+      <nav className="relative border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 lg:px-8">
+          <a
+            href="/"
+            className="text-2xl font-bold tracking-tight text-slate-950"
+          >
+            Adverio<span className="text-blue-600">.</span>
+          </a>
 
-    <div className="hidden items-center gap-8 text-sm font-medium text-slate-600 md:flex">
-      <a
-        href="#features"
-        className="transition hover:text-slate-950"
-      >
-        Features
-      </a>
+          <div className="hidden items-center gap-8 text-sm font-medium text-slate-600 md:flex">
+            <a
+              href="#features"
+              className="transition hover:text-slate-950"
+            >
+              Features
+            </a>
 
-      <a
-        href="#how-it-works"
-        className="transition hover:text-slate-950"
-      >
-        How It Works
-      </a>
+            <a
+              href="#how-it-works"
+              className="transition hover:text-slate-950"
+            >
+              How It Works
+            </a>
 
-      <a
-        href="#industries"
-        className="transition hover:text-slate-950"
-      >
-        Industries
-      </a>
+            <a
+              href="#industries"
+              className="transition hover:text-slate-950"
+            >
+              Industries
+            </a>
 
-      <a
-        href="#pricing"
-        className="transition hover:text-slate-950"
-      >
-        Pricing
-      </a>
-    </div>
+            <a
+              href="#pricing"
+              className="transition hover:text-slate-950"
+            >
+              Pricing
+            </a>
+          </div>
 
-    <div className="hidden items-center gap-3 sm:flex">
-      <a
-        href="/login"
-        className="text-sm font-semibold text-slate-700 transition hover:text-slate-950"
-      >
-        Log in
-      </a>
+          <div className="hidden items-center gap-3 sm:flex">
+            <a
+              href="/login"
+              className="text-sm font-semibold text-slate-700 transition hover:text-slate-950"
+            >
+              Log in
+            </a>
 
-      <a
-        href="/signup"
-        className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
-      >
-        Get Started
-      </a>
-    </div>
+            <a
+              href="/signup"
+              className="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
+            >
+              Get Started
+            </a>
+          </div>
 
-    <div className="md:hidden">
-      <LandingMobileMenu />
-    </div>
-  </div>
-</nav>
+          <div className="md:hidden">
+            <LandingMobileMenu />
+          </div>
+        </div>
+      </nav>
 
       {/* Hero */}
       <section className="relative overflow-hidden">
@@ -148,10 +164,10 @@ export default function Home() {
             </h1>
 
             <p className="mx-auto mt-7 max-w-2xl text-lg leading-8 text-slate-600 sm:text-xl">
-              Adverio helps small businesses attract customers, capture
-              enquiries, respond instantly and follow up automatically — so
-              you can spend less time chasing leads and more time doing the
-              work you love.
+              Adverio helps small businesses attract customers, create and
+              share marketing campaigns, capture enquiries, respond quickly
+              and follow up automatically — so you can spend less time
+              chasing leads and more time doing the work you love.
             </p>
 
             <div className="mt-10 flex flex-col justify-center gap-4 sm:flex-row">
@@ -190,7 +206,9 @@ export default function Home() {
 
               <div className="grid gap-0 md:grid-cols-3">
                 <div className="border-b border-slate-800 p-6 md:border-b-0 md:border-r">
-                  <p className="text-sm text-slate-400">Marketing campaigns</p>
+                  <p className="text-sm text-slate-400">
+                    Marketing campaigns
+                  </p>
                   <p className="mt-2 text-3xl font-bold text-white">12</p>
                   <p className="mt-2 text-sm text-emerald-400">
                     +24% this month
@@ -231,13 +249,14 @@ export default function Home() {
             </h2>
 
             <p className="mt-5 text-lg leading-8 text-slate-600">
-              From creating campaigns to following up with potential
-              customers, Adverio helps automate the repetitive marketing work
-              that takes you away from your business.
+              From creating campaigns and publishing content to capturing
+              enquiries and following up with potential customers, Adverio
+              helps automate the repetitive marketing work that takes you
+              away from your business.
             </p>
           </div>
 
-          <div className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             {features.map((feature) => (
               <div
                 key={feature.title}
@@ -276,7 +295,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="mt-14 grid gap-8 md:grid-cols-3">
+          <div className="mt-14 grid gap-8 md:grid-cols-2 lg:grid-cols-4">
             {steps.map((step) => (
               <div key={step.number} className="relative">
                 <div className="text-5xl font-bold text-blue-100">
@@ -305,16 +324,18 @@ export default function Home() {
 
                 <p className="mt-5 leading-7 text-slate-300">
                   Adverio connects your marketing activity with your customer
-                  journey, helping you keep potential customers moving forward.
+                  journey, helping you attract customers, share campaigns,
+                  capture enquiries and keep potential customers moving
+                  forward.
                 </p>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
                 {[
                   "Attract",
+                  "Publish",
                   "Capture",
                   "Respond",
-                  "Qualify",
                   "Follow Up",
                   "Convert",
                 ].map((item, index) => (
@@ -335,7 +356,10 @@ export default function Home() {
       </section>
 
       {/* Industries */}
-      <section id="industries" className="border-t border-slate-200 bg-slate-50">
+      <section
+        id="industries"
+        className="border-t border-slate-200 bg-slate-50"
+      >
         <div className="mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-28">
           <div className="mx-auto max-w-2xl text-center">
             <p className="text-sm font-bold uppercase tracking-wider text-blue-600">
@@ -447,8 +471,8 @@ export default function Home() {
           </div>
         </div>
       </footer>
-	  
-	  <BackToTop />
+
+      <BackToTop />
     </main>
   );
 }

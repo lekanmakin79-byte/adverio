@@ -220,6 +220,102 @@ export default async function CampaignDetailsPage({
             />
           </div>
         </section>
+		{/* Publish / Share Campaign */}
+        <section className="mt-10">
+          <SectionHeading
+            eyebrow="Publish your marketing"
+            title="Publish / Share Campaign"
+          />
+
+          <div className="mt-5 rounded-2xl border border-blue-200 bg-blue-50 p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-slate-950">
+                  Your marketing content is ready
+                </h3>
+
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-700">
+                  Publish this campaign directly to your connected marketing
+                  channels, or copy the generated content and publish it
+                  manually on your preferred platform.
+                </p>
+              </div>
+
+              <span className="inline-flex shrink-0 items-center rounded-full border border-blue-200 bg-white px-3 py-1 text-xs font-semibold text-blue-700">
+                Ready to publish
+              </span>
+            </div>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              <div className="rounded-xl border border-white bg-white p-5 shadow-sm">
+                <p className="text-sm font-bold text-slate-950">
+                  🔵 Facebook
+                </p>
+
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Connect your Facebook Page to publish this campaign
+                  directly from Adverio.
+                </p>
+
+                <Link
+                  href="/dashboard/settings"
+                  className="mt-4 inline-flex rounded-lg border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50"
+                >
+                  Connect Facebook
+                </Link>
+              </div>
+
+              <div className="rounded-xl border border-white bg-white p-5 shadow-sm">
+                <p className="text-sm font-bold text-slate-950">
+                  📸 Instagram
+                </p>
+
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Connect your Instagram account through your marketing
+                  channel settings to publish automatically.
+                </p>
+
+                <Link
+                  href="/dashboard/settings"
+                  className="mt-4 inline-flex rounded-lg border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50"
+                >
+                  Connect Instagram
+                </Link>
+              </div>
+
+              <div className="rounded-xl border border-white bg-white p-5 shadow-sm">
+                <p className="text-sm font-bold text-slate-950">
+                  💼 LinkedIn
+                </p>
+
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Connect LinkedIn to publish your campaign content directly
+                  from Adverio.
+                </p>
+
+                <Link
+                  href="/dashboard/settings"
+                  className="mt-4 inline-flex rounded-lg border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50"
+                >
+                  Connect LinkedIn
+                </Link>
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-xl border border-dashed border-blue-300 bg-white p-5">
+              <h3 className="font-bold text-slate-950">
+                No marketing channels connected?
+              </h3>
+
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                No problem. Your campaign is still completely usable. You
+                can copy the generated Facebook, Instagram or LinkedIn
+                content above and publish it manually on your own accounts.
+              </p>
+            </div>
+          </div>
+        </section>
+
 
         {/* Email */}
         <section className="mt-10">
@@ -300,10 +396,13 @@ export default async function CampaignDetailsPage({
         )}
 
         {/* Campaign controls */}
-        <section className="mt-10">
+                <section className="mt-10">
           <CampaignActions
             campaignId={typedCampaign.id}
             status={typedCampaign.status}
+            facebookPost={typedCampaign.facebook_post}
+            instagramPost={typedCampaign.instagram_post}
+            linkedinPost={typedCampaign.linkedin_post}
           />
         </section>
 
