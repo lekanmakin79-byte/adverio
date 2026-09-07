@@ -602,14 +602,38 @@ const facebookResult =
          */
 
         if (task.channel === "instagram") {
+          const campaign = task.campaigns?.[0];
           const imageUrl =
-            task.campaigns?.[0]?.image_url;
+            campaign?.image_url?.trim() || null;
 
-          if (!imageUrl?.trim()) {
+          console.log(
+            "Instagram marketing creative lookup:",
+            {
+              task_id: task.id,
+              campaign_id: task.campaign_id,
+              campaign_found: Boolean(campaign),
+              image_url_present: Boolean(imageUrl),
+              image_url_length:
+                imageUrl?.length ?? 0,
+            },
+          );
+
+          if (!campaign) {
             await markTaskFailed(
               supabase,
               task.id,
-              "Instagram task cannot be published because the campaign has no image URL.",
+              `Instagram task failed: campaign relationship returned no campaign data for campaign ${task.campaign_id}.`,
+            );
+
+            failed += 1;
+            continue;
+          }
+
+          if (!imageUrl) {
+            await markTaskFailed(
+              supabase,
+              task.id,
+              `Instagram task failed: campaign ${task.campaign_id} returned no image URL.`,
             );
 
             failed += 1;
@@ -629,7 +653,7 @@ const facebookResult =
           const instagramResult =
             await publishInstagramPost(
               task.owner_id,
-			  task.business_id,
+              task.business_id,
               task.content,
               imageUrl,
             );
