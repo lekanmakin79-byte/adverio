@@ -14,6 +14,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://adverio.vercel.app"),
+  
+    verification: {
+    google: "Uk6-ipqkCWL46dR82EDaUmp2KomfSn4Ulm4wEQhxpa0",
+  },
 
   title: {
     default: "Adverio | AI Marketing Automation for Small Businesses",
