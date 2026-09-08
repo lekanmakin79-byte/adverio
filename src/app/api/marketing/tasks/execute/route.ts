@@ -143,15 +143,13 @@ export async function GET(request: Request) {
      * ----------------------------------------------------
      */
 
-    const {
-      data: tasks,
-      error: taskError,
-    } = await supabase
-      .from("marketing_tasks")
-      .select(
-        `
+    const { data: tasks, error } =
+      await supabase
+        .from("marketing_tasks")
+        .select(`
           id,
           owner_id,
+          business_id,
           automation_id,
           campaign_id,
           channel,
@@ -164,23 +162,22 @@ export async function GET(request: Request) {
           marketing_automations!inner (
             status
           )
-        `,
-      )
-      .eq("status", "scheduled")
-      .eq(
-        "marketing_automations.status",
-        "active",
-      )
-      .lte("scheduled_for", now)
-      .order("scheduled_for", {
-        ascending: true,
-      })
-      .limit(50);
+        `)
+        .eq("status", "scheduled")
+        .eq(
+          "marketing_automations.status",
+          "active",
+        )
+        .lte("scheduled_for", now)
+        .order("scheduled_for", {
+          ascending: true,
+        })
+        .limit(50);
 
-    if (taskError) {
+    if (error) {
       console.error(
         "Marketing task lookup error:",
-        taskError,
+        error,
       );
 
       return NextResponse.json(
@@ -188,7 +185,7 @@ export async function GET(request: Request) {
           error:
             "Unable to load scheduled marketing tasks.",
           database_error:
-            taskError.message,
+            error.message,
         },
         { status: 500 },
       );
@@ -288,6 +285,8 @@ export async function GET(request: Request) {
             channel: task.channel,
             scheduled_for:
               task.scheduled_for,
+            business_id:
+              task.business_id,
           },
         );
 
@@ -298,28 +297,26 @@ export async function GET(request: Request) {
          */
 
         if (task.channel === "facebook") {
-          
-const facebookImageUrl =
-  task.campaigns?.[0]?.image_url;
+          const facebookImageUrl =
+            task.campaigns?.[0]?.image_url;
 
-console.log(
-  "Facebook marketing creative:",
-  {
-    task_id: task.id,
-    campaign_id: task.campaign_id,
-    image_url:
-      facebookImageUrl ?? null,
-  },
-);
+          console.log(
+            "Facebook marketing creative:",
+            {
+              task_id: task.id,
+              campaign_id: task.campaign_id,
+              image_url:
+                facebookImageUrl ?? null,
+            },
+          );
 
-const facebookResult =
-  await publishFacebookPost(
-  task.owner_id,
-  task.business_id,
-  task.content,
-  facebookImageUrl,
-);
-
+          const facebookResult =
+            await publishFacebookPost(
+              task.owner_id,
+              task.business_id,
+              task.content,
+              facebookImageUrl,
+            );
 
           if (!facebookResult.success) {
             await markTaskFailed(
@@ -462,24 +459,25 @@ const facebookResult =
               },
             );
 
-            const { error: duplicateUpdateError } =
-              await supabase
-                .from("marketing_tasks")
-                .update({
-                  status: "failed",
-                  error_message:
-                    "Duplicate LinkedIn content was already published by another task.",
-                  updated_at:
-                    new Date().toISOString(),
-                })
-                .eq(
-                  "id",
-                  task.id,
-                )
-                .eq(
-                  "status",
-                  "scheduled",
-                );
+            const {
+              error: duplicateUpdateError,
+            } = await supabase
+              .from("marketing_tasks")
+              .update({
+                status: "failed",
+                error_message:
+                  "Duplicate LinkedIn content was already published by another task.",
+                updated_at:
+                  new Date().toISOString(),
+              })
+              .eq(
+                "id",
+                task.id,
+              )
+              .eq(
+                "status",
+                "scheduled",
+              );
 
             if (duplicateUpdateError) {
               console.error(
@@ -515,11 +513,11 @@ const facebookResult =
 
           const linkedInResult =
             await publishLinkedInPost(
-  task.owner_id,
-  task.business_id,
-  task.content,
-  linkedInImageUrl,
-);
+              task.owner_id,
+              task.business_id,
+              task.content,
+              linkedInImageUrl,
+            );
 
           if (!linkedInResult.success) {
             await markTaskFailed(
@@ -602,17 +600,23 @@ const facebookResult =
          */
 
         if (task.channel === "instagram") {
-          const campaign = task.campaigns?.[0];
+          const campaign =
+            task.campaigns?.[0];
+
           const imageUrl =
-            campaign?.image_url?.trim() || null;
+            campaign?.image_url?.trim() ||
+            null;
 
           console.log(
             "Instagram marketing creative lookup:",
             {
               task_id: task.id,
-              campaign_id: task.campaign_id,
-              campaign_found: Boolean(campaign),
-              image_url_present: Boolean(imageUrl),
+              campaign_id:
+                task.campaign_id,
+              campaign_found:
+                Boolean(campaign),
+              image_url_present:
+                Boolean(imageUrl),
               image_url_length:
                 imageUrl?.length ?? 0,
             },
